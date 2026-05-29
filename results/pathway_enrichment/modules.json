@@ -1,0 +1,288 @@
+{
+  "Type_I_IFN_Antiviral": {
+    "name": "Type I IFN & Antiviral Response",
+    "n_genes": 12,
+    "genes": [
+      "IFI27",
+      "IFI35",
+      "IFI44L",
+      "IFIT5",
+      "ISG15",
+      "LILRB1",
+      "LY6E",
+      "RSAD2",
+      "RTP4",
+      "SERPING1",
+      "USP18",
+      "XAF1"
+    ],
+    "terms": [
+      "Multiple IFN/antiviral GO terms"
+    ]
+  },
+  "Cell_Cycle": {
+    "name": "Cell Cycle & Proliferation",
+    "n_genes": 7,
+    "genes": [
+      "CENPE",
+      "CEP55",
+      "KIF4A",
+      "KIFC1",
+      "NCAPH",
+      "STMN1",
+      "TPX2"
+    ],
+    "terms": [
+      "Mitotic Spindle Organization (GO:0007052)",
+      "Mitotic Sister Chromatid Segregation (GO:0000070)",
+      "Mitotic Spindle Assembly (GO:0090307)",
+      "Mitotic Metaphase Plate Congression (GO:0007080)",
+      "Microtubule Cytoskeleton Organization Involved In Mitosis (GO:1902850)"
+    ]
+  },
+  "T_Cell_Activation": {
+    "name": "T Cell Activation",
+    "n_genes": 6,
+    "genes": [
+      "BATF2",
+      "HLA-DOA",
+      "KAT2A",
+      "LILRB1",
+      "SIT1",
+      "TNFRSF14"
+    ],
+    "terms": [
+      "Negative Regulation Of Alpha-Beta T Cell Activation (GO:0046636)",
+      "Regulation Of T Cell Activation (GO:0050863)",
+      "Dendritic Cell Differentiation (GO:0097028)"
+    ]
+  },
+  "B_Cell_Humoral": {
+    "name": "B Cell & Humoral Immunity",
+    "n_genes": 5,
+    "genes": [
+      "IGHA1",
+      "IGHA2",
+      "LILRB1",
+      "RSAD2",
+      "TNFRSF14"
+    ],
+    "terms": [
+      "Negative Regulation Of Alpha-Beta T Cell Activation (GO:0046636)",
+      "CD4-positive, Alpha-Beta T Cell Activation (GO:0035710)",
+      "Antibacterial Humoral Response (GO:0019731)",
+      "Negative Regulation Of CD8-positive, Alpha-Beta T Cell Activation (GO:2001186)"
+    ]
+  },
+  "Antigen_Presentation": {
+    "name": "Antigen Processing",
+    "n_genes": 2,
+    "genes": [
+      "HLA-DOA",
+      "LILRB1"
+    ],
+    "terms": [
+      "Regulation Of T Cell Activation Via T Cell Receptor Contact With Antigen Bound To MHC Molecule On Antigen Presenting Cell (GO:2001188)",
+      "MHC Class II Protein Complex Assembly (GO:0002399)",
+      "Peptide Antigen Assembly With MHC Class II Protein Complex (GO:0002503)"
+    ]
+  },
+  "HZ_Disease_All_Up": {
+    "name": "HZ Disease Signature (All Up)",
+    "n_genes": 103,
+    "genes": [
+      "ACP2",
+      "ASPM",
+      "BATF2",
+      "BOLA2B",
+      "BUB1",
+      "C2CD5-AS1",
+      "CD38",
+      "CD52",
+      "CD8A",
+      "CENPE",
+      "CENPF",
+      "CEP55",
+      "CETP",
+      "CHEK1",
+      "CISD3",
+      "CKS1B",
+      "CPNE5",
+      "CXCR3",
+      "DBI",
+      "DNM1P46",
+      "DNPH1",
+      "DTL",
+      "DUSP5",
+      "EPSTI1",
+      "ERVK-28",
+      "ETV7",
+      "FAM111B",
+      "FAM30A",
+      "GBP1",
+      "GBP1P1",
+      "GBP4",
+      "GLYATL1B",
+      "GML",
+      "GZMA",
+      "H1-2",
+      "H4C3",
+      "HLA-DOA",
+      "IFI27",
+      "IFI35",
+      "IFI44L",
+      "IFIT5",
+      "IGHA1",
+      "IGHA2",
+      "IGHG3",
+      "IGLC2",
+      "IGLC3",
+      "ISG15",
+      "KAT2A",
+      "KIF4A",
+      "KIFC1",
+      "LILRB1",
+      "LOC105369363",
+      "LY6E",
+      "MAGEH1",
+      "MCM10",
+      "MCM4",
+      "MKI67",
+      "MRPL23",
+      "MT-TF",
+      "MT-TQ",
+      "MT-TY",
+      "MT1E",
+      "MT1F",
+      "MZB1",
+      "NCAPH",
+      "NICOL1",
+      "PDCD5",
+      "PDRG1",
+      "PFDN6",
+      "PLAAT4",
+      "PNPLA4",
+      "PRMT1",
+      "PSME2",
+      "PTRHD1",
+      "PTTG1",
+      "RASSF7",
+      "RPLP0",
+      "RPLP0P9",
+      "RRM2",
+      "RSAD2",
+      "RTP4",
+      "SAMD9L",
+      "SDF2L1",
+      "SERPING1",
+      "SIT1",
+      "SLC50A1",
+      "SMTNL1",
+      "SNORD13",
+      "SNORD3A",
+      "SNORD3B-1",
+      "SNORD3B-2",
+      "SNORD3C",
+      "STMN1",
+      "TIMM10",
+      "TNFRSF14",
+      "TOP2A",
+      "TPX2",
+      "TXNDC17",
+      "UQCRQ",
+      "USP18",
+      "VAMP5",
+      "XAF1",
+      "ZNF688"
+    ],
+    "terms": [
+      "All 103 up-regulated DEGs"
+    ]
+  },
+  "Cell_Adhesion": {
+    "name": "Cell Adhesion",
+    "n_genes": 2,
+    "genes": [
+      "ANGPT1",
+      "CACNB4"
+    ],
+    "terms": [
+      "Neuromuscular Junction Development (GO:0007528)",
+      "Negative Regulation Of Cell Adhesion (GO:0007162)",
+      "Regulation Of Cell Adhesion (GO:0030155)"
+    ]
+  },
+  "Signaling": {
+    "name": "Signaling Pathways",
+    "n_genes": 4,
+    "genes": [
+      "FOXO3",
+      "PLVAP",
+      "RUNDC3A",
+      "TREML4"
+    ],
+    "terms": [
+      "Tumor Necrosis Factor-Mediated Signaling Pathway (GO:0033209)",
+      "Positive Regulation Of Toll-Like Receptor 7 Signaling Pathway (GO:0034157)",
+      "Regulation Of cGMP-mediated Signaling (GO:0010752)"
+    ]
+  },
+  "HZ_Disease_All_Down": {
+    "name": "HZ Disease Signature (All Down)",
+    "n_genes": 49,
+    "genes": [
+      "AGMO",
+      "ALPL",
+      "ANGPT1",
+      "ANGPT4",
+      "ARHGEF40",
+      "CACNB4",
+      "CCNJL",
+      "CNTNAP3",
+      "CNTNAP3C",
+      "CNTNAP3P2",
+      "CYP1B1-AS1",
+      "DAAM2",
+      "ENTPD1",
+      "FBXO7",
+      "FOXO3",
+      "GALNT14",
+      "GATA2",
+      "GNAQ",
+      "IFRD1",
+      "IL1R1",
+      "KLF1",
+      "LINC02218",
+      "LINC02458",
+      "LINC02751",
+      "LINC02772",
+      "LOC100289473",
+      "LRMDA",
+      "LYPD8",
+      "MAML3",
+      "PID1",
+      "PLVAP",
+      "REPS2",
+      "RFX2",
+      "RUNDC3A",
+      "RXFP2",
+      "SEC14L3",
+      "SHOC1",
+      "SLC8A1",
+      "SPARC",
+      "SPOPL-DT",
+      "ST6GALNAC3",
+      "TMCC1",
+      "TNFRSF10B-AS1",
+      "TPST1",
+      "TREML4",
+      "VNN1",
+      "YBX3",
+      "ZNF219",
+      "ZNF658B"
+    ],
+    "terms": [
+      "All 49 down-regulated DEGs"
+    ]
+  }
+}

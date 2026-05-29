@@ -1,5 +1,4 @@
 data/
-results/
 *.rds
 *.RData
 .Rhistory
@@ -10,3 +9,5 @@ __pycache__/
 .claude/
 .agents/
 skills-lock.json
+cell_counts_qcpass.csv
+raw_counts.csv
