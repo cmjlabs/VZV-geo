@@ -43,6 +43,8 @@ def parse_metadata(dir_name):
     else:
         patient_id = patient_str
 
+    # ERC = External Reference Control samples (commercial reference RNA, not patient-derived).
+    # These 3 samples are excluded from all differential expression analyses.
     return {
         "gsm": gsm_id,
         "dir_name": dir_name,

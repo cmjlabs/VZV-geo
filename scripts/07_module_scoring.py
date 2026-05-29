@@ -31,9 +31,6 @@ OUT_DIR = os.path.join(RES_DIR, "module_scoring")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # ── 1. Load HZ pathway modules ───────────────────────────────────────────────
-import rpy2.robjects as ro
-from rpy2.robjects import pandas2ri
-pandas2ri.activate()
 
 ro.r['load'](os.path.join(MOD_DIR, "pathway_modules.rds"))
 print("RDS loaded via rpy2 would go here...")

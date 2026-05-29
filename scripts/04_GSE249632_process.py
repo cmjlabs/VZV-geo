@@ -96,8 +96,8 @@ meta_qc = meta_valid[meta_valid['qc_pass'] == 'TRUE'].copy()
 print(f"Cells passing QC: {len(meta_qc)}")
 
 # ── 5. Build pseudobulk per donor x timepoint ────────────────────────────────
-# Use all cells (QC and non-QC for now, filter later in R)
-meta_use = meta_valid.copy()
+# Use ONLY QC-pass cells (matches paper: >=500k reads, >=70% alignment, median cov=1)
+meta_use = meta_qc.copy()
 
 # Subset count matrix to available cells
 available_libs = [l for l in meta_use['lib_id'] if l in df.columns]

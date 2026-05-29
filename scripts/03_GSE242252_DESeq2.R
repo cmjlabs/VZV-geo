@@ -12,7 +12,11 @@ suppressPackageStartupMessages({
 
 set.seed(42)
 
-RES_DIR <- "/media/cmj/MechanicalDisk/yjs/VZV-geo/results/GSE242252"
+# Detect project root from script location (portable: no hardcoded paths)
+args <- commandArgs(trailingOnly = FALSE)
+script_path <- sub("--file=", "", args[grep("--file=", args)])
+PROJ_ROOT <- dirname(dirname(normalizePath(script_path)))
+RES_DIR <- file.path(PROJ_ROOT, "results/GSE242252")
 dir.create(RES_DIR, recursive = TRUE, showWarnings = FALSE)
 
 # ── 1. Load data ─────────────────────────────────────────────────────────────
@@ -25,13 +29,24 @@ print(table(meta$group))
 
 # ── 2. Focus on HZ paired samples ────────────────────────────────────────────
 hz_meta <- subset(meta, condition_label == "Herpes_Zoster")
+
+# Identify patients with BOTH acute and convalescent samples (paired design requirement)
+patient_tps <- table(hz_meta$patient_id, hz_meta$timepoint)
+paired_patients <- rownames(patient_tps)[patient_tps[, "acute"] > 0 & patient_tps[, "convalescent"] > 0]
+hz_meta <- hz_meta[hz_meta$patient_id %in% paired_patients, ]
+
+message(sprintf("Excluded %d patients with only one timepoint: %s",
+                length(setdiff(unique(hz_meta$patient_id), paired_patients)),
+                paste(setdiff(rownames(patient_tps), paired_patients), collapse = ", ")))
+
 hz_samples <- rownames(hz_meta)
 counts_hz <- counts[, hz_samples, drop = FALSE]
 
 hz_meta$timepoint <- factor(hz_meta$timepoint, levels = c("acute", "convalescent"))
 hz_meta$patient_id <- factor(hz_meta$patient_id)
 
-message(sprintf("HZ subset: %d genes x %d samples", nrow(counts_hz), ncol(counts_hz)))
+message(sprintf("HZ paired subset: %d genes x %d samples (%d patients)",
+                nrow(counts_hz), ncol(counts_hz), length(paired_patients)))
 print(table(hz_meta$timepoint))
 
 # ── 3. DESeq2 paired design ──────────────────────────────────────────────────
@@ -174,6 +189,16 @@ if (exists("pca_nosex_df")) {
 }
 
 # ── 8. Volcano plot ──────────────────────────────────────────────────────────
+# Load gene symbol annotations (from Python mygene mapping)
+annot_file <- file.path(RES_DIR, "DE_HZ_annotated.csv")
+if (file.exists(annot_file)) {
+  annot <- read.csv(annot_file)
+  res_df$symbol <- annot$symbol[match(res_df$gene_id, annot$gene_id)]
+} else {
+  res_df$symbol <- res_df$gene_id  # fallback to Ensembl ID
+  message("DE_HZ_annotated.csv not found, using Ensembl IDs as labels")
+}
+
 res_plot <- res_df[!is.na(res_df$padj), ]
 res_plot$sig <- "NS"
 res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 1] <- "Up (FDR<0.05, LFC>1)"
