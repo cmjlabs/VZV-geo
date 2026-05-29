@@ -176,22 +176,47 @@ if (exists("pca_nosex_df")) {
 # ── 8. Volcano plot ──────────────────────────────────────────────────────────
 res_plot <- res_df[!is.na(res_df$padj), ]
 res_plot$sig <- "NS"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 1] <- "Up"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -1] <- "Down"
+res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 1] <- "Up (FDR<0.05, LFC>1)"
+res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -1] <- "Down (FDR<0.05, LFC<-1)"
 
-pdf(file.path(RES_DIR, "Volcano_HZ_acute_vs_convalescent.pdf"), width = 10, height = 8)
-p4 <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj), color = sig)) +
-  geom_point(alpha = 0.5, size = 0.8) +
+n_up_lfc1 <- sum(res_plot$padj < 0.05 & res_plot$log2FoldChange > 1, na.rm = TRUE)
+n_down_lfc1 <- sum(res_plot$padj < 0.05 & res_plot$log2FoldChange < -1, na.rm = TRUE)
+
+# Label top DEGs by |log2FC|
+top_pos <- res_plot[res_plot$padj < 0.05 & res_plot$log2FoldChange > 0.5, ]
+top_pos <- top_pos[order(-top_pos$log2FoldChange), ]
+top_neg <- res_plot[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.5, ]
+top_neg <- top_neg[order(top_neg$log2FoldChange), ]
+label_genes <- rbind(head(top_pos, 10), head(top_neg, 10))
+
+x_max <- max(abs(res_plot$log2FoldChange), na.rm = TRUE) * 1.05
+
+pdf(file.path(RES_DIR, "Volcano_HZ_acute_vs_convalescent.pdf"), width = 11, height = 8)
+p4 <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = sig), alpha = 0.4, size = 0.6) +
+  geom_vline(xintercept = 0, linetype = "solid", color = "grey50", alpha = 0.5) +
   geom_vline(xintercept = c(-1, 1), linetype = "dashed", alpha = 0.3) +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.3) +
-  scale_color_manual(values = c("Down" = "#377EB8", "NS" = "grey70", "Up" = "#E41A1C")) +
+  scale_x_continuous(limits = c(-x_max, x_max)) +
+  scale_color_manual(
+    values = c("Down (FDR<0.05, LFC<-1)" = "#377EB8",
+               "NS" = "grey80",
+               "Up (FDR<0.05, LFC>1)" = "#E41A1C"),
+    name = "") +
   labs(x = "log2 Fold Change (acute vs convalescent)",
-       y = "-log10(adjusted p-value)",
-       title = "HZ Acute vs Convalescent (GSE242252)") +
+       y = expression(-log[10](adjusted~p-value)),
+       title = "GSE242252: HZ Acute vs Convalescent",
+       subtitle = paste0("DESeq2 paired, 26 patients | ",
+                         n_up, " up, ", n_down, " down (FDR<0.05); ",
+                         n_up_lfc1, " up, ", n_down_lfc1, " down (|LFC|>1)")) +
   theme_minimal(base_size = 14) +
-  annotate("text", x = 3, y = 50,
-           label = paste0(n_up, " up\n", n_down, " down"),
-           hjust = 0, size = 4)
+  theme(legend.position = "bottom")
+if (nrow(label_genes) > 0 && requireNamespace("ggrepel", quietly = TRUE)) {
+  p4 <- p4 + ggrepel::geom_text_repel(
+    data = label_genes,
+    aes(label = symbol), size = 3.2, max.overlaps = 25, box.padding = 0.5
+  )
+}
 print(p4)
 dev.off()
 
