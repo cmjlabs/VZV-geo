@@ -85,7 +85,8 @@ html = '''<!DOCTYPE html>
   <li><a href="#s6">6. 交叉比较二：基因集评分转移</a></li>
   <li><a href="#s7">7. 交叉比较三：关键基因对比表</a></li>
   <li><a href="#s8">8. I型 vs II型IFN：疫苗如何激活细胞免疫而不引发炎症</a></li>
-  <li><a href="#s9">9. 综合结论</a></li>
+  <li><a href="#s9">9. 疫苗免疫学深度解读：体液、细胞、Treg与记忆</a></li>
+  <li><a href="#s10">10. 综合结论</a></li>
 </ul>
 </div>
 '''
@@ -437,7 +438,203 @@ CTLA4（+1.58）、ZEB2（+3.06）在D14就与激活基因同步上调。
 '''
 
 html += '''
-<h2 id="s9">9. 综合结论</h2>
+<h2 id="s9">9. 疫苗免疫学深度解读：体液免疫、细胞免疫、Treg与记忆</h2>
+
+<div class="key-finding">
+<strong>核心问题：</strong>从疫苗开发角度，体液免疫（B细胞/抗体）是否重要？细胞免疫中Th1和Th2哪个更关键？
+Treg应维持什么水平？这两个数据集能为此提供什么证据？
+</div>
+
+<h3>9.1 体液免疫（B细胞/抗体）：RZV如何支持抗体产生？</h3>
+
+<table>
+<tr><th>证据来源</th><th>发现</th><th>解读</th></tr>
+<tr style="background:#fff3cd">
+<td><strong>GSE242252 (HZ全血)</strong></td>
+<td>B细胞/浆细胞基因在HZ急性期强烈激活：MZB1(+1.19***), IGLC3(+0.96**), CD79A(+0.50***), IGHG1(+0.61)</td>
+<td>自然感染确实激活了体液免疫——抗体是抗VZV的重要效应机制</td>
+</tr>
+<tr style="background:#d4edda">
+<td><strong>GSE249632 (RZV CD4+ T)</strong></td>
+<td>无法直接检测B细胞(数据只含CD4+ T细胞)。<br><strong>但Tfh签名是所有模块中最强的信号</strong>：CXCR5, BCL6, ICOS, PDCD1, CD40LG, IL21, BTLA, MAF, TOX2</td>
+<td>Tfh细胞的核心功能是帮助B细胞进行类别转换和亲和力成熟。<strong>Tfh签名强=抗体应答的细胞基础被疫苗充分激活</strong></td>
+</tr>
+</table>
+
+<div class="key-finding">
+<strong>疫苗开发启示：</strong>RZV诱导极强的Tfh极化（D74 mean logFC = +1.75，为所有模块最高），
+这表明疫苗同时激活了细胞免疫和体液免疫的细胞基础。Tfh的强度可以作为候选疫苗
+"是否可能诱导高质量抗体应答"的替代指标。
+</div>
+'''
+
+# Add Tfh/Th1/Th2 balance figure
+html += fig_block(
+    "图9A: RZV疫苗中的Th1/Th2/Tfh平衡",
+    os.path.join(RES_DIR, "comparison/Th1_Th2_Tfh_balance.png"),
+    '''<strong>三个时间点的CD4+ T细胞极化方向。</strong>
+    D14（第一针后14天）：Tfh(+1.26) > Th2(+0.91) > Th1(+0.50)——Tfh占主导，
+    这与"疫苗激活CD4+ T细胞以帮助B细胞产生抗体"的预期完全一致。
+    D74（第二针后14天）：Tfh进一步增强至+1.75，Th1维持+0.53。
+    D365（一年后）：所有极化减弱但Tfh仍维持+0.53——提示持续的B细胞辅助能力。
+    <strong>关键：</strong>RZV诱导的是Th1/Tfh混合型——Th1驱动抗病毒细胞免疫，Tfh驱动抗体产生。'''
+)
+
+html += '''
+<h3>9.2 细胞免疫：Th1还是Th2？</h3>
+
+<table>
+<tr><th>基因集</th><th>代表基因</th><th>HZ mean</th><th>RZV D14</th><th>RZV D74</th><th>RZV D365</th><th>解读</th></tr>
+<tr><td><strong>Th1</strong></td><td>TBX21, STAT1, IL18R1, CXCR3, TNF</td><td>+0.13</td><td><b>+0.50</b></td><td><b>+0.53</b></td><td>+0.15</td><td>疫苗稳定激活Th1——抗病毒细胞免疫的核心</td></tr>
+<tr><td><strong>Th2</strong></td><td>GATA3, MAF, STAT6, CCR3, IL4R</td><td>-0.01</td><td>+0.91</td><td>+0.60</td><td>+0.25</td><td>Th2信号部分来自MAF/STAT6等转录因子——并非典型的过敏型Th2</td></tr>
+<tr><td><strong>Tfh</strong></td><td>CXCR5, BCL6, ICOS, PDCD1, IL21</td><td>+0.06</td><td><b>+1.26</b></td><td><b>+1.75</b></td><td><b>+0.53</b></td><td><strong>最强信号——B细胞辅助</strong></td></tr>
+</table>
+
+<div class="warn">
+<strong>关于Th2信号的技术说明：</strong>Th2模块在RZV-D14显示+0.91，但这基于仅5个基因（MAF, STAT6, CCR3, IL4R, CRLF2）。
+MAF在Th2和Tfh中均表达，IL4R是IL-4受体（非Th2特异性）。IL4/IL5/IL13等Th2标志性细胞因子
+在scRNA-seq中难以检测。因此这个Th2信号不应被过度解读为"疫苗诱导Th2"——
+RZV的真实极化是<strong>Th1/Tfh混合型</strong>，这对抗病毒疫苗是最理想的。
+</div>
+
+<div class="key-finding">
+<strong>疫苗开发启示：</strong>候选疫苗应评估Th1/Th2平衡。Th1偏倚（TBX21↑, IFNG↑）对清除胞内病原体
+至关重要；Th2偏倚在某些情况下可能与疫苗增强性疾病（VAED）相关。
+RZV的AS01B佐剂通过TLR4-MyD88通路强烈诱导Th1，是其成功的关键设计。
+</div>
+
+<h3>9.3 Treg：应该维持什么水平？</h3>
+'''
+
+# Add the module comparison figure
+html += fig_block(
+    "图9B: 疫苗免疫学各模块在HZ疾病与RZV疫苗中的表现",
+    os.path.join(RES_DIR, "comparison/vaccine_immunology_modules.png"),
+    '''<strong>12个免疫学功能模块的横向对比。</strong>红色柱=HZ急性期，橙色/粉色/绿色=RZV-D14/D74/D365。
+    背景色区分功能类别。<strong>关键观察：</strong>
+    (1) Tfh(绿色)是RZV中最强的信号——疫苗核心功能是帮助B细胞；
+    (2) T细胞激活/效应记忆在RZV中高于HZ——疫苗的精准性；
+    (3) 补体(蓝色最左)在HZ中激活但在RZV中被抑制——疫苗绕过了这条炎症通路；
+    (4) 经典Treg在RZV中降低——疫苗不扩增Treg群体。'''
+)
+
+html += '''
+<table>
+<tr><th>Treg亚型</th><th>代表基因</th><th>HZ</th><th>RZV D14</th><th>RZV D74</th><th>RZV D365</th><th>解读</th></tr>
+<tr style="background:#fff3cd">
+<td><strong>经典Treg</strong></td><td>FOXP3, IL2RA, IKZF2, IKZF4</td><td>-0.06</td><td><b>-0.71</b></td><td>-0.40</td><td>-0.54</td>
+<td><strong>Treg群体未被疫苗扩增</strong>——这是好的，因为Treg扩增会抑制保护性免疫</td>
+</tr>
+<tr style="background:#d4edda">
+<td><strong>活化/效应Treg</strong></td><td>CTLA4, TIGIT, LAG3, GITR</td><td>+0.18</td><td><b>+0.98</b></td><td><b>+1.19</b></td><td>+0.87</td>
+<td><strong>但这些分子并非Treg独有！</strong>CTLA4和TIGIT是效应T细胞激活后的"自限性刹车"</td>
+</tr>
+</table>
+
+<div class="key-finding">
+<strong>关键免疫学区分：</strong><br>
+(1) <strong>FOXP3+ Treg扩增</strong> → 会抑制疫苗免疫应答 → 应避免<br>
+(2) <strong>效应T细胞上的CTLA4/TIGIT上调</strong> → 是激活诱导的自限性调控 → 是健康应答的标志<br><br>
+RZV的数据清晰展示了模式(2)而非模式(1)：gE特异性CD4+ T细胞在强烈激活（ICOS↑, CD38↑）的同步上调CTLA4/TIGIT，
+确保免疫应答"精准而不失控"。<br><br>
+<strong>疫苗开发启示：</strong>评价疫苗应答时，CTLA4/PDCD1等分子不应简单视为"耗竭"或"抑制"——
+在激活后早期它们是生理性调控信号。真正的耗竭特征是TOX持续升高 + 多重抑制性受体共表达 + 效应功能丧失。
+RZV中的T细胞保持了GZMA/GNLY的效应功能，同时表达适度CTLA4——这是"被调控但不耗竭"的理想状态。
+</div>
+
+<h3>9.4 耗竭 vs 记忆：如何评估疫苗持久性？</h3>
+'''
+
+html += fig_block(
+    "图9C: 耗竭 vs 记忆——关键基因在RZV时间线中的动态",
+    os.path.join(RES_DIR, "comparison/exhaustion_vs_memory_dynamics.png"),
+    '''<strong>HZ列（菱形）=同一基因在HZ急性期的log2FC。</strong>
+    左侧为调控/检查点分子，右侧为效应分子和记忆标记。<br><br>
+    <strong>关键动态模式：</strong><br>
+    (1) CD38（激活标记）：D14=+6.42→D74=+2.99→D365=-0.11——脉冲式激活，随后消退；<br>
+    (2) ZEB2（效应分化）：D14=+3.06→D74=+3.46→D365=+2.91——持久分化重编程；<br>
+    (3) GNLY（细胞毒）：D14=-2.50→D74=+3.19→D365=+3.42——<strong>晚期效应积累</strong>——效应记忆的建立；<br>
+    (4) CTLA4/PDCD1/TIGIT：D14起同步上调，D365部分回落——可逆调控，非永久耗竭；<br>
+    (5) TCF7/IL7R（记忆干性）：D365时下降——gE特异性T细胞偏向效应记忆而非中央记忆。<br><br>
+    <strong>疫苗开发启示：</strong>
+    RZV诱导的是效应记忆（T<sub>EM</sub>）为主的长期保护——这些细胞在组织中巡逻，
+    遇到gE抗原即可快速产生效应功能。GNLY在D365的持续积累（+3.42）提示
+    CD4+ CTL样的效应记忆正在建立。而TCF7/IL7R的下降提示中央记忆（T<sub>CM</sub>，
+    驻留在淋巴结）的相对比例降低——这对疫苗来说不是问题，
+    因为效应记忆对快速清除感染细胞更关键。'''
+)
+
+html += '''
+<h3>9.5 综合解读：两个数据集如何指导疫苗评估</h3>
+
+<table>
+<tr><th>评估维度</th><th>GSE242252 (HZ疾病) 能提供的</th><th>GSE249632 (RZV疫苗) 能提供的</th><th>疫苗评估建议</th></tr>
+
+<tr>
+<td><strong>体液免疫</strong></td>
+<td>B细胞/浆细胞基因↑ (MZB1, IGHG1, IGLC3)<br>补体级联↑ (SERPING1, C1QA)</td>
+<td>Tfh签名 (CXCR5/BCL6/ICOS/IL21)<br>CD40LG (辅助B细胞的关键分子)</td>
+<td>候选疫苗应监测Tfh标记和B细胞活化<br>补体激活是炎症信号，疫苗应避免</td>
+</tr>
+
+<tr>
+<td><strong>Th1/Th2平衡</strong></td>
+<td>Bulk中Th1信号被稀释(CXCR3+0.65**)<br>Th2信号弱</td>
+<td><strong>Th1偏向</strong> (TBX21/STAT1/IL18R1)<br>Tfh > Th1 > Th2</td>
+<td>成功的抗病毒疫苗应Th1偏倚<br>TBX21/STAT1/IL18R1可作为Th1标志</td>
+</tr>
+
+<tr>
+<td><strong>Treg水平</strong></td>
+<td>经典Treg无显著变化<br>ENTPD1/CD39下调 (-0.61**)</td>
+<td>FOXP3签名↓ (不应扩增Treg)<br>CTLA4/TIGIT↑ (自限性调控，非抑制)</td>
+<td>区分"Treg扩增"(↓保护) vs "激活诱导调控"(健康)<br>CTLA4/FOXP3比值 > 2 = 良好免疫质量</td>
+</tr>
+
+<tr>
+<td><strong>记忆/持久性</strong></td>
+<td>无法评估T细胞记忆<br>(全血Bulk，无克隆追踪)</td>
+<td>ZEB2 持续↑ (D365=+2.91)<br>GNLY 晚期积累 (D365=+3.42)<br>效应记忆(T<sub>EM</sub>)>中央记忆(T<sub>CM</sub>)</td>
+<td>ZEB2持久↑ = 分化重编程标记<br>GNLY晚期↑ = 效应记忆建立<br>D365时间点对评估持久性至关重要</td>
+</tr>
+
+<tr>
+<td><strong>安全性标志</strong></td>
+<td>I型IFN风暴 (ISG15/RSAD2)<br>TNF上调 (炎症)</td>
+<td>I型IFN通路平坦<br>补体基因下调<br>CTLA4同步上调 (自限性刹车)</td>
+<td>候选疫苗应避免激活I型IFN/补体级联<br>CTLA4的适度上调是安全信号</td>
+</tr>
+</table>
+
+<div class="key-finding">
+<h3>对疫苗免疫效果评估的五个关键提示</h3>
+
+<p><strong>1. Tfh信号的强度是体液免疫质量的替代指标。</strong>
+无法直接测抗体滴度时，CXCR5/BCL6/ICOS/IL21的co-upregulation
+是B细胞辅助正在发生的可靠分子证据。</p>
+
+<p><strong>2. Th1/Th2比值而非绝对值决定免疫质量。</strong>
+不应单纯看Th1或Th2基因的log2FC，而应关注Th1/(Th2+Treg)的比值。
+高Th1/Treg比值=良好的效应/调控平衡。</p>
+
+<p><strong>3. "调控分子≠耗竭"——需要多维度判断。</strong>
+CTLA4/PDCD1/TIGIT的上调在疫苗应答中是正常且必要的。
+真正的耗竭需要TOX↑ + 多重抑制性受体 + 效应功能↓ (GZMB/PRF1↓)。
+RZV展示了"被调控但不耗竭"的理想模式。</p>
+
+<p><strong>4. D365时间点是评估持久性的金标准。</strong>
+D14和D74的基因表达变化只能反映急性应答。D365的ZEB2/GNLY持续表达
+才代表真正的免疫记忆编程。短期保护看抗体，长期保护看效应记忆。</p>
+
+<p><strong>5. 安全疫苗的精髓是"选择性激活"而非"全面激活"。</strong>
+RZV选择性激活了Tfh/Th1/效应记忆通路，同时绕过了I型IFN炎症和补体级联。
+这种免疫学"精准性"正是佐剂系统（AS01B）设计的核心目标——
+也是未来疫苗开发的努力方向。</p>
+</div>
+'''
+
+html += '''
+<h2 id="s10">10. 综合结论</h2>
 
 <div class="key-finding">
 <h3>三种独立的分析方法一致支持以下结论：</h3>
