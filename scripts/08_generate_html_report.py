@@ -84,7 +84,8 @@ html = '''<!DOCTYPE html>
   <li><a href="#s5">5. 交叉比较一：象限图</a></li>
   <li><a href="#s6">6. 交叉比较二：基因集评分转移</a></li>
   <li><a href="#s7">7. 交叉比较三：关键基因对比表</a></li>
-  <li><a href="#s8">8. 综合结论</a></li>
+  <li><a href="#s8">8. I型 vs II型IFN：疫苗如何激活细胞免疫而不引发炎症</a></li>
+  <li><a href="#s9">9. 综合结论</a></li>
 </ul>
 </div>
 '''
@@ -337,7 +338,106 @@ html += '''
 
 # ── Section 8: Conclusions ───────────────────────────────────────────────────
 html += '''
-<h2 id="s8">8. 综合结论</h2>
+<h2 id="s8">8. I型 vs II型IFN：疫苗如何激活细胞免疫而不引发炎症？</h2>
+
+<div class="key-finding">
+<strong>核心问题：</strong>理论上，疫苗需要激活细胞免疫（IFN-γ驱动的Th1/CD8应答）才能建立保护。
+但前面分析显示RZV疫苗<strong>不激活I型IFN</strong>（ISGs不升高）。
+这是否意味着疫苗不激活IFN介导的细胞免疫？<br>
+<strong>答案：不是。</strong>关键在于区分<strong>三套不同的IFN系统</strong>。
+</div>
+
+<h3>8.1 三种IFN系统的免疫学区别</h3>
+
+<table>
+<tr><th>特征</th><th>I型IFN (IFN-α/β)</th><th>II型IFN (IFN-γ)</th><th>III型IFN (IFN-λ)</th></tr>
+<tr><td><strong>主要来源</strong></td><td>pDC、单核细胞、受感染细胞</td><td><strong>激活的T细胞（CD4 Th1、CD8 CTL）、NK细胞</strong></td><td>上皮细胞</td></tr>
+<tr><td><strong>触发信号</strong></td><td>RIG-I/MDA5/TLR → IRF3/7</td><td><strong>TCR激活 + IL-12 → STAT4/T-bet</strong></td><td>类似I型但组织局限</td></tr>
+<tr><td><strong>下游标记基因</strong></td><td>ISG15, RSAD2, IFI44L, MX1, OASL</td><td><strong>IRF1, CXCL9/10/11, GBP1-5, CIITA</strong></td><td>与I型重叠但局限于粘膜</td></tr>
+<tr><td><strong>免疫学性质</strong></td><td>天然免疫、全身性炎症</td><td><strong>适应性免疫、T细胞效应功能</strong></td><td>屏障免疫</td></tr>
+<tr><td><strong>在HZ中</strong></td><td style="background:#fff3cd"><strong>★★★ 强烈激活</strong>（全血ISG风暴）</td><td>混合（T细胞信号被全血稀释）</td><td>未评估</td></tr>
+<tr><td><strong>在RZV中</strong></td><td style="background:#d4edda">→ 基本持平（避免炎症）</td><td style="background:#d4edda"><strong>详见下文——需区分"产生"与"应答"</strong></td><td>未评估</td></tr>
+</table>
+
+<h3>8.2 数据验证：I型IFN基因在HZ vs RZV中的行为</h3>
+'''
+
+# Add IFN comparison figure
+html += fig_block(
+    "图8A: I型 vs II型IFN通路基因对比",
+    os.path.join(RES_DIR, "comparison/IFN_Type_I_vs_II_comparison.png"),
+    '''<strong>上排（Type I IFN, IFN-α/β）：</strong>左侧为HZ急性期——ISG15、RSAD2、IFI44L等
+    几乎全部上调（红色=上调，蓝色=下调，mean=+0.52）。中间和右侧为RZV-D14和D74——
+    同一批基因在疫苗中呈<strong>混合模式</strong>（mean≈0），IFN-α/β的炎症程序未被疫苗激活。<br><br>
+    <strong>下排左/中（Type II IFN hallmark, IFN-γ应答）：</strong>这些基因是"细胞接受IFN-γ刺激后"的下游效应基因
+    （CXCL9/10/11趋化因子、GBP家族GTPases等），主要由巨噬细胞/内皮细胞表达。
+    在CD4+ T细胞数据中这些基因本底就很低，因此Hallmark IFN-γ gene set的评分不适用于T细胞本身。<br><br>
+    <strong>下排右（T细胞激活标记——这才是细胞免疫的真实读数）：</strong>
+    ICOS(+1.23)、CD38(+6.42)、ZEB2(+3.06)、GZMA(+2.47)、IRF4(+0.54)——这些才是疫苗激活细胞免疫的
+    分子证据。CTLA4(+1.58)的协同上调则展示了疫苗如何同时建立自限性调控。'''
+)
+
+# Add summary bar chart
+html += fig_block(
+    "图8B: IFN通路与T细胞激活 — 汇总对比",
+    os.path.join(RES_DIR, "comparison/IFN_summary_barchart.png"),
+    '''<strong>一目了然的对比：</strong>红色柱=HZ急性期的I型IFN（mean log2FC=+0.52）——
+    天然免疫炎症风暴。蓝色柱=RZV-D14的T细胞激活基因（mean=+1.78）——适应性保护免疫。
+    疫苗绕过了炎症性的I型IFN通路，直接激活了ICOS/CD38/ZEB2/GZMA等T细胞效应程序。'''
+)
+
+# Add the detailed data table snippet
+html += '''
+<h3>8.3 关键基因逐一对比：I型IFN vs T细胞激活</h3>
+
+<table>
+<tr><th>基因</th><th>所属通路</th><th>HZ急性期 log2FC</th><th>RZV-D14</th><th>RZV-D74</th><th>RZV-D365</th><th>解读</th></tr>
+
+<tr style="background:#fff3cd"><td><strong>ISG15</strong></td><td>I型IFN</td><td><b>+1.08</b>**</td><td>+0.17</td><td>-0.34</td><td>-0.07</td><td>HZ中强烈↑，疫苗中平坦</td></tr>
+<tr style="background:#fff3cd"><td><strong>RSAD2</strong></td><td>I型IFN</td><td><b>+1.01</b>*</td><td>-2.07</td><td>-1.65</td><td>-0.17</td><td>疫苗中<strong>下调</strong></td></tr>
+<tr style="background:#fff3cd"><td><strong>IFI44L</strong></td><td>I型IFN</td><td><b>+1.09</b>*</td><td>-1.98</td><td>-0.43</td><td>-0.41</td><td>疫苗中下调</td></tr>
+<tr style="background:#fff3cd"><td><strong>IFI27</strong></td><td>I型IFN</td><td><b>+1.22</b>*</td><td>+2.04</td><td>-2.36</td><td>+0.15</td><td>唯一例外——D14上调但D74反向</td></tr>
+<tr style="background:#fff3cd"><td><strong>USP18</strong></td><td>I型IFN</td><td>+0.73**</td><td>+1.80</td><td>-0.04</td><td>+2.13</td><td>ISG化调控因子，在疫苗中也波动</td></tr>
+
+<tr style="background:#d4edda"><td><strong>ICOS</strong></td><td>T细胞激活</td><td>+0.09</td><td><b>+1.23</b></td><td><b>+1.18</b></td><td>+0.54</td><td>疫苗T细胞共刺激——HZ中不激活</td></tr>
+<tr style="background:#d4edda"><td><strong>CD38</strong></td><td>T细胞激活</td><td>+0.52***</td><td><b>+6.42</b></td><td><b>+2.99</b></td><td>-0.11</td><td>疫苗强激活——HZ中是全血弱信号</td></tr>
+<tr style="background:#d4edda"><td><strong>ZEB2</strong></td><td>T细胞分化</td><td>-0.18</td><td><b>+3.06</b></td><td><b>+3.46</b></td><td><b>+2.91</b></td><td>疫苗持久重编程——HZ中无变化</td></tr>
+<tr style="background:#d4edda"><td><strong>GZMA</strong></td><td>细胞毒</td><td>+0.68***</td><td><b>+2.47</b></td><td><b>+3.43</b></td><td>+1.46</td><td>共同效应通路——但疫苗中幅度更大</td></tr>
+<tr style="background:#d4edda"><td><strong>IRF4</strong></td><td>效应分化</td><td>+0.31</td><td>+0.54</td><td>+0.74</td><td>+0.01</td><td>疫苗效应分化——HZ中不显著</td></tr>
+<tr style="background:#d4edda"><td><strong>CTLA4</strong></td><td>免疫刹车</td><td>+0.15</td><td><b>+1.58</b></td><td><b>+1.62</b></td><td>+0.98</td><td>疫苗自限性调控——HZ中不激活</td></tr>
+</table>
+
+<h3>8.4 免疫学解读</h3>
+
+<div class="key-finding">
+<p><strong>RZV疫苗的免疫策略可以概括为"精准激活、绕过炎症"：</strong></p>
+
+<p><strong>1. 不激活I型IFN通路（IFN-α/β）：</strong>
+ISG15、RSAD2、IFI44L等ISGs在疫苗时间线中保持平坦甚至下调。
+这是<strong>有意为之的免疫学设计</strong>——I型IFN的全身性激活会引起发热、肌痛等不良反应，
+且过度的I型IFN信号可导致T细胞凋亡和免疫耗竭。疫苗的佐剂系统（AS01B）
+通过TLR4/MyD88而非RIG-I/MDA5通路激活先天免疫，精准地避开了IFN-α/β的炎症级联。</p>
+
+<p><strong>2. T细胞效应程序被充分激活：</strong>
+ICOS（+1.23）、CD38（+6.42）、GZMA（+2.47）在D14显著上调——
+这些不是"IFN-γ hallmark基因"，而是T细胞自身的激活和效应分子。
+<strong>IFN-γ本身由激活的T细胞分泌后作用于巨噬细胞等靶细胞，
+其效应在T细胞自身的转录组中并不体现为hallmark IFN-γ response基因的上调。</strong>
+这解释了为什么GSEA显示"interferon gamma response"通路激活
+（论文报告），而我们逐个看hallmark基因时信号混合。</p>
+
+<p><strong>3. 自限性调控同步建立：</strong>
+CTLA4（+1.58）、ZEB2（+3.06）在D14就与激活基因同步上调。
+这意味着RZV疫苗在激活效应T细胞的同时就预设了"刹车"——
+这是疫苗安全性（不引起免疫病理）和持久性（避免耗竭）的关键。</p>
+</div>
+
+<h3>8.5 补充数据：IFN通路对比完整数据表</h3>
+<p>完整88个基因的对比数据见 <code>results/comparison/IFN_comparison_table.csv</code>。</p>
+'''
+
+html += '''
+<h2 id="s9">9. 综合结论</h2>
 
 <div class="key-finding">
 <h3>三种独立的分析方法一致支持以下结论：</h3>
@@ -357,7 +457,14 @@ ZEB2在D365仍维持+2.91 logFC——这是疫苗诱导的长期T细胞分化重
 CTLA4（+1.58~+0.98）和ICOS（+1.23~+0.54）的持续上调构建了"刹车"机制。
 GNLY在D365的晚期积累（+3.42）提示效应记忆的逐步建立。</p>
 
-<p><strong>4. 共同点仅限于通用增殖程序。</strong><br>
+<p><strong>4. 疫苗通过T细胞效应程序（而非I型IFN炎症）建立细胞免疫。</strong><br>
+ICOS(+1.23)、CD38(+6.42)、GZMA(+2.47)、ZEB2(+3.06)在RZV-D14显著上调，
+而ISG15、RSAD2、IFI44L等I型IFN炎症基因在疫苗中持平或下调。
+这表明RZV巧妙地"绕过"了IFN-α/β的天然免疫炎症通路，
+直接激活T细胞适应性免疫。CTLA4的同步上调（+1.58）则构成了自限性刹车，
+确保免疫应答"精准而不过度"——这既是疫苗有效性的基础，也是其安全性的保障。</p>
+
+<p><strong>5. 共同点仅限于通用增殖程序。</strong><br>
 TOP2A、MKI67、CD38在两种过程中均上调，反映任何免疫激活都需要细胞分裂。
 这些是"噪音"而非疾病/疫苗的特异性信号。</p>
 </div>
