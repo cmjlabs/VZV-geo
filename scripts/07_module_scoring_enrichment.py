@@ -55,7 +55,7 @@ try:
     enr_up = gp.enrichr(
         gene_list=up_genes,
         gene_sets=['GO_Biological_Process_2023'],
-        organism='Human',
+        organism='human',
         outdir=None,
         no_plot=True
     )
@@ -73,7 +73,7 @@ try:
     enr_down = gp.enrichr(
         gene_list=down_genes,
         gene_sets=['GO_Biological_Process_2023'],
-        organism='Human',
+        organism='human',
         outdir=None,
         no_plot=True
     )
