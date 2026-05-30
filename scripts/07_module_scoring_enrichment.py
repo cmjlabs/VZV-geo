@@ -190,6 +190,11 @@ all_modules = {
 small_modules = {k for k in {**modules_up, **modules_down} if k not in all_modules}
 if small_modules:
     print(f"\nDropped modules with < {MIN_MODULE_GENES} genes: {small_modules}")
+    # Remove stale txt files from previous runs
+    for mod_key in small_modules:
+        stale = os.path.join(MOD_DIR, f"module_{mod_key}.txt")
+        if os.path.exists(stale):
+            os.remove(stale)
 
 # Save module gene lists
 for mod_key, mod_info in all_modules.items():

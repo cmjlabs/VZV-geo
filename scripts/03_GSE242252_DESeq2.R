@@ -15,6 +15,9 @@ set.seed(42)
 # Detect project root from script location (portable: no hardcoded paths)
 args <- commandArgs(trailingOnly = FALSE)
 script_path <- sub("--file=", "", args[grep("--file=", args)])
+if (length(script_path) == 0 || nchar(script_path) == 0) {
+  stop("Please run via: Rscript scripts/03_GSE242252_DESeq2.R (not source() in RStudio)")
+}
 PROJ_ROOT <- dirname(dirname(normalizePath(script_path)))
 RES_DIR <- file.path(PROJ_ROOT, "results/GSE242252")
 dir.create(RES_DIR, recursive = TRUE, showWarnings = FALSE)
@@ -39,10 +42,10 @@ hz_meta <- subset(meta, condition_label == "Herpes_Zoster")
 patient_tps <- table(hz_meta$patient_id, hz_meta$timepoint)
 paired_patients <- rownames(patient_tps)[patient_tps[, "acute"] > 0 & patient_tps[, "convalescent"] > 0]
 hz_meta <- hz_meta[hz_meta$patient_id %in% paired_patients, ]
-
+excluded_patients <- setdiff(rownames(patient_tps), paired_patients)
 message(sprintf("Excluded %d patients with only one timepoint: %s",
-                length(setdiff(unique(hz_meta$patient_id), paired_patients)),
-                paste(setdiff(rownames(patient_tps), paired_patients), collapse = ", ")))
+                length(excluded_patients),
+                paste(excluded_patients, collapse = ", ")))
 
 hz_samples <- rownames(hz_meta)
 counts_hz <- counts[, hz_samples, drop = FALSE]

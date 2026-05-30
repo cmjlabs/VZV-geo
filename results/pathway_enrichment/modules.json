@@ -74,19 +74,6 @@
       "Negative Regulation Of CD8-positive, Alpha-Beta T Cell Activation (GO:2001186)"
     ]
   },
-  "Antigen_Presentation": {
-    "name": "Antigen Processing",
-    "n_genes": 2,
-    "genes": [
-      "HLA-DOA",
-      "LILRB1"
-    ],
-    "terms": [
-      "Regulation Of T Cell Activation Via T Cell Receptor Contact With Antigen Bound To MHC Molecule On Antigen Presenting Cell (GO:2001188)",
-      "MHC Class II Protein Complex Assembly (GO:0002399)",
-      "Peptide Antigen Assembly With MHC Class II Protein Complex (GO:0002503)"
-    ]
-  },
   "HZ_Disease_All_Up": {
     "name": "HZ Disease Signature (All Up)",
     "n_genes": 103,
@@ -197,34 +184,6 @@
     ],
     "terms": [
       "All 103 up-regulated DEGs"
-    ]
-  },
-  "Cell_Adhesion": {
-    "name": "Cell Adhesion",
-    "n_genes": 2,
-    "genes": [
-      "ANGPT1",
-      "CACNB4"
-    ],
-    "terms": [
-      "Neuromuscular Junction Development (GO:0007528)",
-      "Negative Regulation Of Cell Adhesion (GO:0007162)",
-      "Regulation Of Cell Adhesion (GO:0030155)"
-    ]
-  },
-  "Signaling": {
-    "name": "Signaling Pathways",
-    "n_genes": 4,
-    "genes": [
-      "FOXO3",
-      "PLVAP",
-      "RUNDC3A",
-      "TREML4"
-    ],
-    "terms": [
-      "Tumor Necrosis Factor-Mediated Signaling Pathway (GO:0033209)",
-      "Positive Regulation Of Toll-Like Receptor 7 Signaling Pathway (GO:0034157)",
-      "Regulation Of cGMP-mediated Signaling (GO:0010752)"
     ]
   },
   "HZ_Disease_All_Down": {
