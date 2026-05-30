@@ -153,6 +153,9 @@ if (length(top_genes) > 0) {
     }
   }
 
+  # Restore factor levels lost during rbind
+  plot_data$timepoint <- factor(plot_data$timepoint, levels = c("D0", "D14", "D60", "D74", "D365"))
+
   p <- ggplot(plot_data, aes(x = timepoint, y = mean, group = gene, color = gene)) +
     geom_line(linewidth = 1) +
     geom_point(size = 2) +
