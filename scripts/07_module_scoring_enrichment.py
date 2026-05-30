@@ -181,6 +181,16 @@ modules_down['HZ_Disease_All_Down'] = {
 
 all_modules = {**modules_up, **modules_down}
 
+# Filter out modules with too few genes (statistically unstable mean z-score)
+MIN_MODULE_GENES = 5
+all_modules = {
+    k: v for k, v in all_modules.items()
+    if len(v['genes']) >= MIN_MODULE_GENES or k.startswith('HZ_Disease')
+}
+small_modules = {k for k in {**modules_up, **modules_down} if k not in all_modules}
+if small_modules:
+    print(f"\nDropped modules with < {MIN_MODULE_GENES} genes: {small_modules}")
+
 # Save module gene lists
 for mod_key, mod_info in all_modules.items():
     fname = f"module_{mod_key}.txt"

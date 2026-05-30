@@ -28,6 +28,11 @@ message(sprintf("Count matrix: %d genes x %d samples", nrow(counts), ncol(counts
 print(table(meta$group))
 
 # ── 2. Focus on HZ paired samples ────────────────────────────────────────────
+# Metadata contains 3 sample types:
+#   - Herpes_Zoster (HZ): 26 acute + 23 convalescent → used for paired DEA
+#   - Control (CO): 28 healthy donor samples → excluded (different biology)
+#   - External_Control (ERC): 3 cross-study reference samples (CO053/CO109/CO271)
+#     → excluded (external batch, no matched HZ timepoints)
 hz_meta <- subset(meta, condition_label == "Herpes_Zoster")
 
 # Identify patients with BOTH acute and convalescent samples (paired design requirement)
@@ -56,9 +61,10 @@ dds <- DESeqDataSetFromMatrix(
   design    = ~ patient_id + timepoint
 )
 
-# Pre-filter: >= 10 counts in >= n_patients
-n_patients <- length(unique(hz_meta$patient_id))
-keep <- rowSums(counts(dds) >= 10) >= n_patients
+# Pre-filter: >= 10 counts in >= half the samples per group (standard practice)
+min_per_group <- ceiling(min(table(hz_meta$timepoint)) / 2)
+keep <- rowSums(counts(dds) >= 10) >= min_per_group
+message(sprintf("Pre-filter: >= 10 counts in >= %d samples (half of smallest group)", min_per_group))
 dds <- dds[keep, ]
 message(sprintf("After DESeq2 pre-filter: %d genes", nrow(dds)))
 
@@ -155,7 +161,7 @@ print(p)
 dev.off()
 
 # 7b. No sex chr (if available)
-if (exists("pca_nosex_df")) {
+if (exists("pca_nosex")) {
   pca_nosex_df <- as.data.frame(pca_nosex$x)
   pca_nosex_df$patient_id <- hz_meta$patient_id
   pca_nosex_df$timepoint <- hz_meta$timepoint
@@ -231,7 +237,7 @@ p4 <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj))) +
   labs(x = "log2 Fold Change (acute vs convalescent)",
        y = expression(-log[10](adjusted~p-value)),
        title = "GSE242252: HZ Acute vs Convalescent",
-       subtitle = paste0("DESeq2 paired, 26 patients | ",
+       subtitle = paste0("DESeq2 paired, ", length(paired_patients), " patients | ",
                          n_up, " up, ", n_down, " down (FDR<0.05); ",
                          n_up_lfc1, " up, ", n_down_lfc1, " down (|LFC|>1)")) +
   theme_minimal(base_size = 14) +
