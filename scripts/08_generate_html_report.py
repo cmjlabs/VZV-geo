@@ -102,7 +102,7 @@ html += '''
 <tr><td>细胞来源</td><td>全血</td><td>gE四聚体分选CD4+ T细胞</td></tr>
 <tr><td>研究对象</td><td>26例HZ患者</td><td>7例健康疫苗接种者</td></tr>
 <tr><td>时间点</td><td>急性期 + 恢复期(1年)</td><td>D0, D14, D60, D74, D365</td></tr>
-<tr><td>DEGs (FDR<0.05)</td><td>549↑, 769↓</td><td>D14: 156↑/203↓; D60: 3↑/5↓; D74: 86↑/65↓; D365: 23↑/38↓</td></tr>
+<tr><td>DEGs (FDR<0.05)</td><td>486↑, 757↓</td><td>D14: 165↑/178↓; D60: 9↑/4↓; D74: 68↑/40↓; D365: 18↑/22↓</td></tr>
 </table>
 
 <div class="warn">
@@ -174,7 +174,7 @@ html += '''
 </table>
 
 <div class="key-finding">
-<strong>通路分层策略：</strong>将1,318个DEGs拆分为功能特异性的模块进行分别评分，
+<strong>通路分层策略：</strong>将1,243个DEGs拆分为功能特异性的模块进行分别评分，
 而非将所有DEGs混在一起。这避免了不同生物学过程的信号相互稀释，
 并能针对性地回答"疫苗是否激活了HZ特有的IFN通路"等具体问题。
 </div>
