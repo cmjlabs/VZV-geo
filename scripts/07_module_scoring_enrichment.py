@@ -224,21 +224,22 @@ cell_counts = pd.read_csv(counts_file, sep='\t', index_col=0).T
 print(f"  Matrix: {cell_counts.shape[1]} genes x {cell_counts.shape[0]} cells")
 
 # Build gene symbol → column map for the count matrix
+# Use cached Ensembl→symbol mapping from HZ annotation (avoids mygene API dependency)
 gene_ids = cell_counts.columns.tolist()
 gene_clean = [g.split('.')[0] for g in gene_ids]
 
-# Map using mygene
-import mygene
-mg = mygene.MyGeneInfo()
-print("Mapping gene IDs to symbols (this may take a minute)...")
-batch_size = 2000
-sym_map = {}
-for i in range(0, len(gene_clean), batch_size):
-    batch = gene_clean[i:i+batch_size]
-    results = mg.querymany(batch, scopes='ensembl.gene', fields='symbol',
-                           species='human', batch_size=1000)
-    for r in results:
-        sym_map[r['query']] = r.get('symbol', '')
+# Build mapping from cached annotation (already loaded as ens2sym in Step 1)
+sym_map = ens2sym  # from Step 1 HZ annotation loading
+
+# Fallback: also try old HZ annotated file for additional mappings
+annot_file = os.path.join(RES_DIR, "GSE242252", "DE_HZ_annotated.csv")
+if os.path.exists(annot_file):
+    annot = pd.read_csv(annot_file)
+    for _, row in annot.iterrows():
+        eid = str(row.get('ensembl_id_clean', ''))
+        sym = str(row.get('symbol', ''))
+        if eid and sym and sym != 'nan' and eid not in sym_map:
+            sym_map[eid] = sym
 
 # Build symbol → column names map
 sym_to_cols = {}
@@ -250,7 +251,7 @@ for i, gid in enumerate(gene_ids):
             sym_to_cols[sym] = []
         sym_to_cols[sym].append(gene_ids[i])
 
-print(f"  Mapped {len(sym_to_cols)} unique gene symbols")
+print(f"  Mapped {len(sym_to_cols)} unique gene symbols (from cached annotation)")
 
 # Cell metadata
 cell_meta = pd.read_csv(os.path.join(RES_DIR, "GSE249632/cell_metadata_clean.csv"))
@@ -389,14 +390,9 @@ rzv_gene_ids = set()
 for df in rzv_de_all.values():
     rzv_gene_ids.update(df['gene_id'].str.split('.').str[0].tolist())
 
-print(f"Mapping {len(rzv_gene_ids)} RZV gene IDs to symbols...")
-rzv_sym_map = {}
-for i in range(0, len(rzv_gene_ids), 2000):
-    batch = list(rzv_gene_ids)[i:i+2000]
-    results = mg.querymany(batch, scopes='ensembl.gene', fields='symbol',
-                           species='human', batch_size=1000)
-    for r in results:
-        rzv_sym_map[r['query']] = r.get('symbol', '')
+print(f"Mapping {len(rzv_gene_ids)} RZV gene IDs to symbols (cached)...")
+# Use the symbol mapping already built (ens2sym from Step 1 + annotation file)
+rzv_sym_map = sym_map  # reuse the comprehensive cached mapping
 
 # Define RZV modules
 rzv_modules = {}
