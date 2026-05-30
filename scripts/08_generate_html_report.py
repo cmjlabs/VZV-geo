@@ -116,7 +116,7 @@ html += '<h2 id="s2">2. GSE242252: HZ疾病的全血转录组特征</h2>'
 
 html += fig_block(
     "图1: HZ急性期 vs 恢复期火山图",
-    os.path.join(RES_DIR, "GSE242252/Volcano_HZ_acute_vs_convalescent.pdf"),
+    os.path.join(RES_DIR, "GSE242252/Volcano_HZ_acute_vs_convalescent.png"),
     '''<strong>解读：</strong>DESeq2配对分析（26对HZ患者，急性发作期 vs 约1年后恢复期）。
     红色点 = FDR&lt;0.05且log2FC>1的上调基因（105个），蓝色点 = FDR&lt;0.05且log2FC<-1的下调基因。
     <strong>最显著的信号来自I型干扰素应答基因（ISGs）：</strong>ISG15(log2FC=+1.08), RSAD2(+1.01),
@@ -129,7 +129,7 @@ html += fig_block(
 
 html += fig_block(
     "图2: PCA (全基因集, PC1 vs PC2)",
-    os.path.join(RES_DIR, "GSE242252/PCA_HZ_allgenes_PC1vsPC2.pdf"),
+    os.path.join(RES_DIR, "GSE242252/PCA_HZ_allgenes_PC1vsPC2.png"),
     '''<strong>方法学说明：</strong>初始PCA使用所有基因。性染色体基因（XIST, RPS4Y1, DDX3Y等）
     在PC1中贡献显著，可能导致样本按性别而非疾病状态分离。后续分析需剔除性染色体基因后
     重新PCA，使用PC2/PC3进行生物学解释。这不是分析的缺陷，而是严谨性控制的体现。'''
@@ -140,7 +140,7 @@ html += '<h2 id="s3">3. GSE249632: RZV疫苗的CD4+ T细胞转录组动力学</h
 
 html += fig_block(
     "图3: 差异表达基因热图 (398 DEGs across timepoints)",
-    os.path.join(RES_DIR, "GSE249632/Heatmap_DEGs_across_timepoints.pdf"),
+    os.path.join(RES_DIR, "GSE249632/Heatmap_DEGs_across_timepoints.png"),
     '''<strong>解读：</strong>热图展示在至少1个时间点显著（FDR&lt;0.05, |logFC|>0.5）的398个基因
     在5个时间点的表达模式。列顺序为D0→D14→D60→D74→D365。
     <strong>关键模式：</strong>
@@ -152,7 +152,7 @@ html += fig_block(
 
 html += fig_block(
     "图4: Top DEGs在各时间点的表达趋势",
-    os.path.join(RES_DIR, "GSE249632/TopDEGs_lineplot.pdf"),
+    os.path.join(RES_DIR, "GSE249632/TopDEGs_lineplot.png"),
     '''<strong>解读：</strong>top差异基因的平均表达趋势（log2 CPM）跨D0→D14→D60→D74→D365。
     每条线代表一个基因，展示7位供者的均值±SEM。<strong>典型模式：</strong>
     ZEB2（T细胞分化调控因子）在所有疫苗接种后时间点持续高表达，
