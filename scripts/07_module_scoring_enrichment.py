@@ -271,18 +271,17 @@ print(f"  Matrix: {cell_counts.shape[1]} genes x {cell_counts.shape[0]} cells")
 gene_ids = cell_counts.columns.tolist()
 gene_clean = [g.split('.')[0] for g in gene_ids]
 
-# Build mapping from cached annotation (already loaded as ens2sym in Step 1)
-sym_map = ens2sym  # from Step 1 HZ annotation loading
-
-# Fallback: also try old HZ annotated file for additional mappings
+# Build Ensembl→symbol mapping from HZ annotation file
+sym_map = {}
 annot_file = os.path.join(RES_DIR, "GSE242252", "DE_HZ_annotated.csv")
 if os.path.exists(annot_file):
     annot = pd.read_csv(annot_file)
     for _, row in annot.iterrows():
         eid = str(row.get('ensembl_id_clean', ''))
         sym = str(row.get('symbol', ''))
-        if eid and sym and sym != 'nan' and eid not in sym_map:
+        if eid and sym and sym != 'nan':
             sym_map[eid] = sym
+print(f"  Loaded {len(sym_map)} symbol mappings from annotation")
 
 # Build symbol → column names map
 sym_to_cols = {}
@@ -434,8 +433,8 @@ for df in rzv_de_all.values():
     rzv_gene_ids.update(df['gene_id'].str.split('.').str[0].tolist())
 
 print(f"Mapping {len(rzv_gene_ids)} RZV gene IDs to symbols (cached)...")
-# Use the symbol mapping already built (ens2sym from Step 1 + annotation file)
-rzv_sym_map = sym_map  # reuse the comprehensive cached mapping
+# Use the cached symbol mapping built from HZ annotation
+rzv_sym_map = sym_map
 
 # Define RZV modules
 rzv_modules = {}

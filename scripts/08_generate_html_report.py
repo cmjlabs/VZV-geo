@@ -247,47 +247,65 @@ html += '''
 追踪其评分在D0→D14→D60→D74→D365的变化。</p>
 '''
 
-dir_a_modules = [
-    ('Type_I_IFN_Antiviral', 'Type I IFN & Antiviral (12 genes)',
-     '''<strong>这是本报告最关键的图。</strong>该模块包含HZ急性期最显著上调的IFN应答基因
-     （ISG15、RSAD2、IFI44L等12个基因）。<strong>在RZV疫苗的整个时间线中，该模块的评分
-     在所有5个时间点基本持平</strong>——没有任何时间点出现显著升高。
-     <strong>这直接验证了核心假说：RZV疫苗不激活HZ疾病标志性的I型IFN炎症程序。</strong>
-     左图小提琴图展示每个时间点的评分分布（Kruskal-Wallis检验无显著性）；
-     右图展示7位供者各自的纵向轨迹。'''),
+# Dynamically build Direction A modules from actual scoring results
+import csv
+a_summary_file = os.path.join(RES_DIR, "module_scoring", "A_module_scores_summary.csv")
+dir_a_modules = []
+if os.path.exists(a_summary_file) and os.path.exists(mod_json):
+    with open(mod_json) as f:
+        all_mods = json.load(f)
+    with open(a_summary_file) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            mk = row['Module']
+            if mk not in all_mods:
+                continue
+            info = all_mods[mk]
+            n = info['n_genes']
+            name = info['name']
+            # Parse scores
+            scores = {}
+            for tp in ['D0','D14','D60','D74','D365']:
+                v = row[tp]
+                scores[tp] = float(v.split('±')[0].strip()) if '±' in v else float(v)
+            avg_post = (scores['D14'] + scores['D74'] + scores['D365']) / 3
+            # Determine trend
+            if abs(avg_post) < 0.01:
+                trend = '评分在所有时间点基本持平'
+            elif avg_post > 0.01:
+                trend = f'模块评分在疫苗接种后整体升高（平均{avg_post:+.3f}）'
+            else:
+                trend = f'模块评分在疫苗接种后整体降低（平均{avg_post:+.3f}）'
+            # Significance
+            sig_tps = []
+            for tp in ['D14','D74','D365']:
+                pcol = f'p_{tp}_vs_D0'
+                if pcol in row and row[pcol] and float(row[pcol]) < 0.05:
+                    sig_tps.append(tp)
+            sig_str = f'显著变化时间点：{",".join(sig_tps)}' if sig_tps else '无时间点与D0有显著差异'
+            # Build explanation
+            is_all = 'All' in name and 'DEG' in name
+            if is_all:
+                expl = f'<strong>综合模块（{n}个基因）。</strong>将所有HZ差异表达基因作为一个整体。{trend}。{sig_str}。'
+            else:
+                expl = f'<strong>GO term: {name}（{n}个基因）。</strong>{trend}。{sig_str}。该模块来自GO富集分析中显著性排序靠前的term，代表HZ疾病中该生物学过程的整体行为。'
+            dir_a_modules.append((mk, f'{name} ({n} genes)', expl))
 
-    ('Cell_Cycle', 'Cell Cycle & Proliferation (7 genes)',
-     '''该模块在D14轻微升高（+0.061），对应疫苗接种后T细胞的扩增期。
-     但幅度远小于HZ急性期的增殖信号（TOP2A在HZ中+1.25，在RZV-D14中+7.05）。
-     右图的供者轨迹显示个体间存在异质性——不同供者的增殖幅度不同。
-     到D365基本回到基线水平。'''),
-
-    ('T_Cell_Activation', 'T Cell Activation (6 genes)',
-     '''T细胞激活模块在疫苗时间线中变化不大，D14轻微上升后D60/D74回落。
-     该模块基因数较少（6个），来自GO Antigen Receptor-Mediated Signaling。
-     右图供者轨迹显示个体差异较大。'''),
-
-    ('B_Cell_Humoral', 'B Cell & Humoral Immunity (5 genes)',
-     '''B细胞/体液免疫模块在D74下降（-0.051）——符合预期，因为RZV疫苗
-     作用于CD4+ T细胞，而HZ全血中的B细胞信号来自全血的B细胞群体。
-     该模块在疫苗T细胞数据中无生物学意义的变化。'''),
-
-    ('HZ_Disease_All_Up', 'HZ Disease Signature - All Up (103 genes)',
-     '''将所有103个HZ上调基因作为一个整体模块。D14有轻微升高（+0.043），
-     但整体趋势平坦。这是因为该模块混合了IFN（疫苗中不变）、增殖（疫苗中微升）、
-     B细胞（疫苗中无关）等多种信号，导致评分被稀释——这正是我们选择
-     <strong>通路分层</strong>而非使用全部DEGs的原因。'''),
-
-    ('HZ_Disease_All_Down', 'HZ Disease Signature - All Down (49 genes)',
-     '''HZ下调基因模块在疫苗时间线中也无明显变化。补充性展示。'''),
-]
+# Show All modules first, then data-driven modules (sorted by gene count descending)
+all_mods_list = [(k, t, e) for k, t, e in dir_a_modules if 'All' in t and 'DEG' in t]
+data_mods_list = [(k, t, e) for k, t, e in dir_a_modules if not ('All' in t and 'DEG' in t)]
+data_mods_list.sort(key=lambda x: -int(x[1].split('(')[-1].replace(' genes)','')) if 'genes)' in x[1] else 0)
+# Top 10 data-driven + 2 All
+dir_a_modules = data_mods_list[:10] + all_mods_list
 
 for mod_key, mod_title, explanation in dir_a_modules:
-    html += fig_block(
-        f"图A-{mod_key}: {mod_title} 在RZV疫苗时间线中的评分",
-        os.path.join(RES_DIR, f"module_scoring/A_module_{mod_key}.png"),
-        explanation
-    )
+    img_path = os.path.join(RES_DIR, f"module_scoring/A_module_{mod_key}.png")
+    if os.path.exists(img_path):
+        html += fig_block(
+            f"图A-{mod_key}: {mod_title} 在RZV疫苗时间线中的评分",
+            img_path,
+            explanation
+        )
 
 html += '''
 <h3>6.2 方向B：RZV疫苗模块 → HZ疾病（急性期 vs 恢复期）</h3>
