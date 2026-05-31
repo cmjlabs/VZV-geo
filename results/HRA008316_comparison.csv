@@ -1,0 +1,21 @@
+gene,category,bulk_LFC,bulk_sig,scRNA_LFC,scRNA_sig
+ISG15,Type I IFN,-0.375082151047851,**,-0.37203404,***
+RSAD2,Type I IFN,-0.29710475902943,*,,ns
+IFI44L,Type I IFN,-0.351126710193134,*,,ns
+IFI27,Type I IFN,0.216431965299712,*,,ns
+MX1,Type I IFN,0.260925500247117,ns,,ns
+IFIT5,Type I IFN,0.652921257006888,***,,ns
+SERPING1,Complement,-0.483649054580082,**,,ns
+GZMA,Cytotoxicity,-0.479752862846091,***,0.801437,***
+GZMB,Cytotoxicity,,ns,-0.3365359,*
+PRF1,Cytotoxicity,0.192141343908591,ns,0.53373235,***
+GNLY,Cytotoxicity,-0.332747598569766,ns,-0.6178381,***
+IL7R,T cell memory,-0.176038029575664,ns,0.65436035,***
+IL2RG,Cytokine receptor,,ns,3.0574756,***
+RARRES3,T cell activation,,ns,3.2292013,***
+DUSP2,Negative regulator,0.311906761085147,ns,-2.759564,***
+JUNB,Transcription factor,,ns,-2.7496321,***
+TSC22D3,Glucocorticoid-induced,-0.130775831783981,ns,-2.4464934,***
+H3F3B,Chromatin,,ns,3.6184947,***
+RPL21,Ribosomal,0.0964987561072001,ns,4.7147923,***
+RPL26,Ribosomal,,ns,3.2888222,***
