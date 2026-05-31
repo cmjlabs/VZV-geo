@@ -137,9 +137,26 @@ if (length(sig_genes) > 2) {
 }
 
 # ── 8. Line plot for top DEGs ────────────────────────────────────────────────
+# Load gene symbol mapping from HZ annotation (Ensembl ID -> symbol)
+hz_annot_file <- file.path(dirname(RES_DIR), "GSE242252", "DE_HZ_annotated.csv")
+ens2sym <- list()
+if (file.exists(hz_annot_file)) {
+  hz_annot <- read.csv(hz_annot_file)
+  ens2sym <- setNames(as.character(hz_annot$symbol), hz_annot$ensembl_id_clean)
+  message(sprintf("Loaded %d gene symbol mappings", length(ens2sym)))
+}
+
+# Convert Ensembl IDs to symbols for display
+get_label <- function(gid) {
+  clean <- strsplit(gid, "\\.")[[1]][1]
+  sym <- ens2sym[clean]
+  if (length(sym) == 0 || is.na(sym[[1]]) || nchar(sym[[1]]) == 0) return(clean)
+  return(sym[[1]])
+}
+
 top_genes <- head(sig_genes, 12)
 if (length(top_genes) > 0) {
-  pdf(file.path(RES_DIR, "TopDEGs_lineplot.pdf"), width = 12, height = 8)
+  pdf(file.path(RES_DIR, "TopDEGs_lineplot.pdf"), width = 14, height = 8)
 
   plot_data <- data.frame()
   for (g in top_genes) {
@@ -147,8 +164,9 @@ if (length(top_genes) > 0) {
       samples <- colnames(pb_counts)[pb_meta$timepoint == tp]
       vals <- cpm[g, samples]
       plot_data <- rbind(plot_data, data.frame(
-        gene = g, timepoint = tp,
-        mean = mean(vals), se = sd(vals) / sqrt(length(vals))
+        gene_id = g, gene = get_label(g), timepoint = tp,
+        mean = mean(vals), se = sd(vals) / sqrt(length(vals)),
+        stringsAsFactors = FALSE
       ))
     }
   }
