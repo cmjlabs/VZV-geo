@@ -161,22 +161,44 @@ html += fig_block(
 )
 
 # ── Section 4: Pathway ───────────────────────────────────────────────────────
-html += '<h2 id="s4">4. 通路富集与功能模块定义</h2>'
+# Build module table dynamically from modules.json
+import json
+mod_json = os.path.join(RES_DIR, "pathway_enrichment", "modules.json")
+module_rows = ""
+if os.path.exists(mod_json):
+    with open(mod_json) as f:
+        all_mods = json.load(f)
+    # Separate All_Up/All_Down from data-driven modules
+    data_mods = {k: v for k, v in all_mods.items() if not k.startswith('HZ_Disease')}
+    all_mods_ordered = list(data_mods.items()) + [
+        (k, v) for k, v in all_mods.items() if k.startswith('HZ_Disease')
+    ]
+    for mod_key, mod_info in all_mods_ordered:
+        n_genes = mod_info['n_genes']
+        top_genes = ', '.join(mod_info['genes'][:8])
+        if len(mod_info['genes']) > 8:
+            top_genes += ', ...'
+        term_str = mod_info.get('terms', [mod_info['name']])
+        if isinstance(term_str, list):
+            term_str = term_str[0] if term_str else mod_info['name']
+        bold = '<strong>' if n_genes > 100 else ''
+        bold_e = '</strong>' if n_genes > 100 else ''
+        module_rows += f'<tr><td>{bold}{mod_info["name"]}{bold_e}</td><td>{n_genes}</td><td>{top_genes}</td><td>{term_str[:80]}</td></tr>\n'
 
-html += '''
+html += f'<h2 id="s4">4. 通路富集与功能模块定义</h2>'
+
+html += f'''
 <table>
-<tr><th>模块</th><th>基因数</th><th>代表基因</th><th>GO来源</th></tr>
-<tr><td><strong>Type I IFN & Antiviral</strong></td><td>12</td><td>ISG15, RSAD2, IFI44L, IFI27, MX1, IFIT5, OASL</td><td>Defense Response To Virus (p=2e-3)</td></tr>
-<tr><td>Cell Cycle & Proliferation</td><td>7</td><td>TOP2A, MKI67, PTTG1, STMN1, MCM10</td><td>Mitotic Spindle Organization (p=9e-3)</td></tr>
-<tr><td>T Cell Activation</td><td>6</td><td>来自Antigen Receptor-Mediated Signaling</td><td>Antigen Receptor Signaling (p=9e-3)</td></tr>
-<tr><td>B Cell & Humoral</td><td>5</td><td>MZB1, IGLC3, SERPING1</td><td>BCR Signaling (p=2e-3)</td></tr>
-<tr><td>HZ Disease (All Up)</td><td>103</td><td>所有上调DEGs (LFC>0.5, FDR<0.05)</td><td>—</td></tr>
+<tr><th>模块 (GO Term)</th><th>基因数</th><th>代表基因</th><th>GO来源</th></tr>
+{module_rows}
 </table>
 
 <div class="key-finding">
-<strong>通路分层策略：</strong>将1,243个DEGs拆分为功能特异性的模块进行分别评分，
-而非将所有DEGs混在一起。这避免了不同生物学过程的信号相互稀释，
-并能针对性地回答"疫苗是否激活了HZ特有的IFN通路"等具体问题。
+<strong>方法：</strong>将HZ急性期所有FDR&lt;0.05的差异表达基因（486上调, 757下调）
+进行GO Biological Process富集分析（Enrichr），按adjusted p-value排序，
+取top显著GO terms作为功能模块。<strong>共{len(data_mods)}个数据驱动的模块</strong>，
+每个模块对应一个具体的GO term，基因集完全由富集结果决定，无人工筛选。
+模块间基因重叠>50%的自动合并（Jaccard index）。仅保留≥5个基因的模块。
 </div>
 '''
 
