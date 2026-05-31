@@ -5,6 +5,7 @@ Complete pathway-stratified cross-dataset gene set scoring.
 2. Direction A: Score HZ modules in GSE249632 cells across vaccine timeline
 3. Direction B: Score RZV modules in GSE242252 bulk (acute vs convalescent)
 """
+import re
 import os, sys, json
 for k in list(os.environ.keys()):
     if 'proxy' in k.lower():
@@ -36,8 +37,9 @@ hz_degs = pd.read_csv(os.path.join(RES_DIR, "GSE242252/DE_HZ_annotated.csv"))
 hz_degs['ensembl_clean'] = hz_degs['gene_id'].str.split('.').str[0]
 
 sig = hz_degs[hz_degs['padj'].notna() & (hz_degs['padj'] < 0.05)].copy()
-sig_up = sig[sig['log2FoldChange'] > 0.5]
-sig_down = sig[sig['log2FoldChange'] < -0.5]
+# Use ALL FDR<0.05 genes for enrichment (no LFC cutoff — more genes = better enrichment power)
+sig_up = sig[sig['log2FoldChange'] > 0]
+sig_down = sig[sig['log2FoldChange'] < 0]
 
 print(f"Total DEGs: {len(sig)} (up: {len(sig_up)}, down: {len(sig_down)})")
 
@@ -92,91 +94,132 @@ print("\n" + "=" * 70)
 print("STEP 2: Define functional gene modules from GO results")
 print("=" * 70)
 
-def extract_module(enr_df, pattern, name, max_terms=5):
-    """Extract genes from matching GO terms."""
-    matches = enr_df[enr_df['Term'].str.contains(pattern, case=False, regex=True)]
-    if len(matches) == 0:
-        return None
-    matches = matches.head(max_terms)
-    all_genes = set()
-    for genes_str in matches['Genes']:
-        for g in genes_str.split(';'):
-            all_genes.add(g.strip())
-    return {'name': name, 'genes': sorted(all_genes),
-            'n_terms': len(matches), 'terms': matches['Term'].tolist()}
+def merge_overlapping_modules(modules, overlap_threshold=0.5):
+    """Merge modules whose gene sets overlap by > overlap_threshold (Jaccard)."""
+    keys = list(modules.keys())
+    merged = {}
+    skip = set()
+    for i, k1 in enumerate(keys):
+        if k1 in skip:
+            continue
+        g1 = set(modules[k1]['genes'])
+        mt = modules[k1]['terms'].copy()
+        for j, k2 in enumerate(keys):
+            if j <= i or k2 in skip:
+                continue
+            g2 = set(modules[k2]['genes'])
+            jac = len(g1 & g2) / len(g1 | g2) if len(g1 | g2) > 0 else 0
+            if jac > overlap_threshold:
+                g1 |= g2
+                mt.extend(modules[k2]['terms'])
+                skip.add(k2)
+        merged[k1] = {'name': modules[k1]['name'], 'genes': sorted(g1),
+                      'n_terms': len(mt), 'terms': mt}
+    return merged
 
-# Up-regulated modules
-modules_up = {}
+def top_go_modules(enr_df, n_top=10, min_genes=3, direction='up',
+                   gene_universe=None, max_background_dilution=0.3):
+    """Extract gene modules from top N significant GO terms (data-driven).
+    Skips terms that are diluted in the gene universe (too few of their genes in our DEG list).
+    """
+    if enr_df is None or len(enr_df) == 0:
+        return {}
+    df = enr_df.sort_values('Adjusted P-value').copy()
 
-if len(enr_up_res) > 0:
-    # Type I IFN + antiviral
-    ifn_genes = set()
-    for pat in ['interferon.*type I|type I.*interferon|interferon-alpha|interferon-beta',
-                'response to interferon', 'defense response to virus',
-                'negative regulation of viral', 'innate immune',
-                'viral transcription', 'ISG15']:
-        mod = extract_module(enr_up_res, pat, 'temp', max_terms=3)
-        if mod:
-            ifn_genes.update(mod['genes'])
-    if ifn_genes:
-        modules_up['Type_I_IFN_Antiviral'] = {
-            'name': 'Type I IFN & Antiviral Response',
-            'genes': sorted(ifn_genes),
-            'n_terms': 'multiple',
-            'terms': ['Multiple IFN/antiviral GO terms']
-        }
+    # Print all candidates for transparency
+    print(f"\n  Top {n_top} {direction}-regulated GO terms (by adj p-value):")
+    for i, (_, row) in enumerate(df.head(n_top).iterrows()):
+        n_genes = len(row['Genes'].split(';'))
+        print(f"    {i+1:2d}. [{row['Adjusted P-value']:.1e}] {row['Term'][:60]:60s} ({n_genes} genes)")
 
-    # Cell cycle / proliferation
-    mod = extract_module(enr_up_res, 'cell.*cycle|mitotic|division|proliferation|mitosis|DNA replication',
-                         'Cell Cycle & Proliferation', max_terms=5)
-    if mod:
-        modules_up['Cell_Cycle'] = mod
+    modules = {}
+    taken = set()
+    skipped_generic = 0
+    for i, row in df.iterrows():
+        if len(modules) >= n_top:
+            break
+        term = row['Term']
+        genes = [g.strip() for g in row['Genes'].split(';')]
 
-    # T cell activation
-    mod = extract_module(enr_up_res, 'T.*cell.*activ|T.*cell.*receptor|TCR|T.*cell.*differentiation',
-                         'T Cell Activation', max_terms=3)
-    if mod:
-        modules_up['T_Cell_Activation'] = mod
+        # Skip if too few genes
+        if len(genes) < min_genes:
+            continue
 
-    # B cell / humoral
-    mod = extract_module(enr_up_res, 'B.*cell.*activ|humoral|immunoglobulin|complement',
-                         'B Cell & Humoral Immunity', max_terms=4)
-    if mod:
-        modules_up['B_Cell_Humoral'] = mod
+        # Skip overly generic terms (common GO traps)
+        generic_patterns = [
+            'positive regulation of transcription',
+            'negative regulation of transcription',
+            'regulation of transcription',
+            'positive regulation of gene expression',
+            'regulation of gene expression',
+            'positive regulation of RNA',
+            'negative regulation of RNA',
+            'regulation of RNA',
+            'positive regulation of cellular biosynthetic',
+            'positive regulation of nitrogen compound',
+            'positive regulation of macromolecule',
+            'cellular response to oxygen-containing',
+            'positive regulation of nucleobase',
+        ]
+        term_lower = term.lower()
+        if any(p in term_lower for p in generic_patterns):
+            skipped_generic += 1
+            continue
 
-    # Antigen presentation
-    mod = extract_module(enr_up_res, 'antigen.*process|MHC|peptide.*antigen',
-                         'Antigen Processing', max_terms=3)
-    if mod:
-        modules_up['Antigen_Presentation'] = mod
+        # Skip if most genes already covered
+        new_genes = set(genes) - taken
+        if len(new_genes) < max(3, len(genes) * 0.4):
+            continue
 
-# Down-regulated modules
-modules_down = {}
+        key = re.sub(r'[^a-zA-Z0-9_]', '_', term)[:60]
+        key = re.sub(r'_+', '_', key).strip('_')
+        if key in modules:
+            key = f"{key}_{i}"
+        modules[key] = {'name': term, 'genes': sorted(genes),
+                        'n_terms': 1, 'terms': [term]}
+        taken.update(genes)
 
-if len(enr_down_res) > 0:
-    mod = extract_module(enr_down_res, 'cell.*adhesion|junction|integrin',
-                         'Cell Adhesion', max_terms=3)
-    if mod:
-        modules_down['Cell_Adhesion'] = mod
+    if skipped_generic:
+        print(f"  Skipped {skipped_generic} overly generic GO terms ({direction})")
 
-    mod = extract_module(enr_down_res, 'signaling|signal.*transduction',
-                         'Signaling Pathways', max_terms=3)
-    if mod:
-        modules_down['Signaling'] = mod
+    # If too few modules retained, supplement with top terms by p-value (no generic filter)
+    if len(modules) < 3:
+        print(f"  Only {len(modules)} modules after filtering — supplementing with top terms")
+        for i, row in df.iterrows():
+            if len(modules) >= max(n_top, 5):
+                break
+            term = row['Term']
+            genes = [g.strip() for g in row['Genes'].split(';')]
+            if len(genes) < min_genes:
+                continue
+            key = re.sub(r'[^a-zA-Z0-9_]', '_', term)[:60]
+            key = re.sub(r'_+', '_', key).strip('_')
+            if key not in modules:
+                modules[key] = {'name': term, 'genes': sorted(genes),
+                                'n_terms': 1, 'terms': [term]}
 
-# Add combined modules
+    modules = merge_overlapping_modules(modules)
+    print(f"  {direction}-regulated: {len(modules)} modules retained")
+    return modules
+
+# Data-driven module definition: top N GO terms by significance
+TOP_N_UP, TOP_N_DOWN = 12, 8
+MIN_GENES = 3  # initial per-term minimum, will filter < 5 after merging
+
+modules_up = top_go_modules(enr_up_res, TOP_N_UP, MIN_GENES, 'up') if len(enr_up_res) > 0 else {}
+modules_down = top_go_modules(enr_down_res, TOP_N_DOWN, MIN_GENES, 'down') if len(enr_down_res) > 0 else {}
+
 modules_up['HZ_Disease_All_Up'] = {
-    'name': 'HZ Disease Signature (All Up)',
+    'name': 'HZ Disease Signature (All Up-regulated DEGs)',
     'genes': sorted(up_genes),
     'n_terms': 'N/A',
-    'terms': [f'All {len(up_genes)} up-regulated DEGs']
+    'terms': [f'All {len(up_genes)} up-regulated DEGs (FDR<0.05, LFC>0.5)']
 }
-
 modules_down['HZ_Disease_All_Down'] = {
-    'name': 'HZ Disease Signature (All Down)',
+    'name': 'HZ Disease Signature (All Down-regulated DEGs)',
     'genes': sorted(down_genes),
     'n_terms': 'N/A',
-    'terms': [f'All {len(down_genes)} down-regulated DEGs']
+    'terms': [f'All {len(down_genes)} down-regulated DEGs (FDR<0.05, LFC<-0.5)']
 }
 
 all_modules = {**modules_up, **modules_down}
