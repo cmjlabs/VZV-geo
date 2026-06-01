@@ -131,35 +131,14 @@ print(summary(res))
 res_df <- as.data.frame(res)
 res_df$gene_id <- rownames(res_df)
 
-# --- 添加基因Symbol列 ---
-# 方法: 从已有的注释文件(由Python mygene注释生成)读取EnsemblID→Symbol映射
-annot_file <- file.path(RES_HZ, "DE_HZ_annotated.csv")
-if (file.exists(annot_file)) {
-  annot <- read.csv(annot_file)
-  # 构建映射表: Ensembl ID (去版本号) → Symbol
-  annot$ensembl_clean <- gsub("\\..*", "", annot$gene_id)
-  id2sym <- setNames(annot$symbol, annot$ensembl_clean)
-  # 为结果添加symbol列
-  res_df$ensembl_clean <- gsub("\\..*", "", res_df$gene_id)
-  res_df$symbol <- id2sym[res_df$ensembl_clean]
-  res_df$ensembl_clean <- NULL  # 删除临时列
-  message(sprintf("已添加基因Symbol列 (匹配 %d / %d 个基因)",
-                  sum(!is.na(res_df$symbol)), nrow(res_df)))
-} else {
-  # 如果注释文件不存在, 尝试用org.Hs.eg.db直接映射
-  message("注释文件不存在, 尝试用org.Hs.eg.db...")
-  if (requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
-    library(org.Hs.eg.db)
-    gene_ids <- gsub("\\..*", "", res_df$gene_id)
-    res_df$symbol <- mapIds(org.Hs.eg.db, keys = gene_ids,
-                            column = "SYMBOL", keytype = "ENSEMBL",
-                            multiVals = "first")
-    message(sprintf("已通过org.Hs.eg.db添加Symbol列"))
-  } else {
-    res_df$symbol <- NA
-    message("警告: 无法添加Symbol列 (注释文件和org.Hs.eg.db均不可用)")
-  }
-}
+# --- 添加基因Symbol列 (通过org.Hs.eg.db映射Ensembl ID → Gene Symbol) ---
+library(org.Hs.eg.db)
+gene_ids <- gsub("\\..*", "", res_df$gene_id)  # 去掉Ensembl ID版本号
+res_df$symbol <- mapIds(org.Hs.eg.db, keys = gene_ids,
+                        column = "SYMBOL", keytype = "ENSEMBL",
+                        multiVals = "first")
+message(sprintf("已添加基因Symbol列 (匹配 %d / %d 个基因)",
+                sum(!is.na(res_df$symbol)), nrow(res_df)))
 
 write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
           row.names = FALSE)
