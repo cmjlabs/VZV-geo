@@ -145,15 +145,18 @@ res_df$symbol <- mapIds(org.Hs.eg.db, keys = gene_ids,
 message(sprintf("已添加基因Symbol列 (匹配 %d / %d 个基因)",
                 sum(!is.na(res_df$symbol)), nrow(res_df)))
 
+# 删除未匹配到Symbol的基因 (非编码RNA、假基因等非蛋白编码基因)
+n_removed <- sum(is.na(res_df$symbol))
+res_df <- res_df[!is.na(res_df$symbol), ]
+message(sprintf("删除 %d 个无Symbol基因, 剩余 %d 个基因", n_removed, nrow(res_df)))
+
 write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
           row.names = FALSE)
 
-# 统计显著差异基因数量 (FDR < 0.05)
-#n_up   <- sum(res$padj < 0.05 & res$log2FoldChange > 0, na.rm = TRUE)
-#n_down <- sum(res$padj < 0.05 & res$log2FoldChange < 0, na.rm = TRUE)
-n_up   <- sum(res$padj < 0.05 & res$log2FoldChange > 0, na.rm = TRUE)
-n_down <- sum(res$padj < 0.05 & res$log2FoldChange < 0, na.rm = TRUE)
-message(sprintf("显著差异基因 (FDR<0.05): %d 上调, %d 下调", n_up, n_down))
+# 统计显著差异基因数量 (基于已过滤symbol的基因)
+n_up   <- sum(res_df$padj < 0.05 & res_df$log2FoldChange > 0, na.rm = TRUE)
+n_down <- sum(res_df$padj < 0.05 & res_df$log2FoldChange < 0, na.rm = TRUE)
+message(sprintf("显著差异基因 (FDR<0.05): %d 上调, %d 下调 (已过滤无Symbol)", n_up, n_down))
 
 # --- A5. PCA主成分分析 ---
 # 用vst(variance stabilizing transformation)标准化后做PCA
@@ -192,9 +195,8 @@ res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.58] <- "Down"
 label_up   <- head(res_plot[res_plot$sig == "Up", ][order(-res_plot[res_plot$sig == "Up", ]$log2FoldChange), ], 10)
 label_down <- head(res_plot[res_plot$sig == "Down", ][order(res_plot[res_plot$sig == "Down", ]$log2FoldChange), ], 10)
 label_genes <- rbind(label_up, label_down)
-# 基因名: 有symbol用symbol, 无则用Ensembl ID的前10位
-label_genes$label <- ifelse(is.na(label_genes$symbol) | label_genes$symbol == "",
-                            substr(label_genes$gene_id, 1, 10), label_genes$symbol)
+# 基因名: 直接使用symbol (已过滤无symbol基因)
+label_genes$label <- label_genes$symbol
 
 pdf(file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"), width = 10, height = 8)
 p <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj), color = sig)) +
