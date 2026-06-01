@@ -18,7 +18,7 @@ PROJ_ROOT <- normalizePath(dirname(dirname(
 
 message("Project root: ", PROJ_ROOT)
 
-# Install dependencies if missing (uncomment if needed)
+# 依赖包已安装，注释掉安装代码
 # if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 # BiocManager::install(c("DESeq2","limma","edgeR","ggplot2","pheatmap","RColorBrewer"))
 
