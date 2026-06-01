@@ -18,9 +18,20 @@
 # ===========================================================================
 
 # 自动检测项目根目录(脚本所在目录的上一级)
-PROJ_ROOT <- normalizePath(dirname(dirname(
+# 在RStudio中运行时, 请手动设置下面这行为你的实际项目路径
+# 例如: PROJ_ROOT <- "/media/cmj/MechanicalDisk/yjs/VZV-geo"
+script_path <- tryCatch({
   sub("--file=", "", commandArgs(trailingOnly = FALSE)[grep("--file=", commandArgs(trailingOnly = FALSE))])
-)))
+}, error = function(e) "")
+
+if (length(script_path) == 0 || nchar(script_path) == 0) {
+  # RStudio环境下无法自动检测, 使用当前工作目录或手动设置
+  # 请取消下面这行注释并填入你的实际项目路径:
+  PROJ_ROOT <- "/media/cmj/MechanicalDisk/yjs/VZV-geo"
+  # 如果当前工作目录就是项目根目录, 也可以直接: PROJ_ROOT <- getwd()
+} else {
+  PROJ_ROOT <- normalizePath(dirname(dirname(script_path)))
+}
 message("项目根目录: ", PROJ_ROOT)
 
 # 依赖包已安装，注释掉安装代码。首次运行需取消注释
