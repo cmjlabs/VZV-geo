@@ -38,6 +38,7 @@ message("项目根目录: ", PROJ_ROOT)
 # if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 # BiocManager::install(c("DESeq2","limma","edgeR","ggplot2","pheatmap","RColorBrewer"))
 
+
 # 加载分析所需的R包
 suppressPackageStartupMessages({
   library(DESeq2)        # 差异表达分析(Bulk RNA-seq)
@@ -46,7 +47,7 @@ suppressPackageStartupMessages({
   library(ggplot2)       # 绑图(PCA、火山图)
   library(pheatmap)      # 热图
   library(RColorBrewer)  # 调色板
-  library(pheatmap)      # 热图
+  library(ggrepel)       # 火山图基因标签防重叠
   library(clusterProfiler) # GO/KEGG富集分析
   library(org.Hs.eg.db)   # 基因ID映射(Ensembl→Symbol→Entrez)
   library(enrichplot)     # 富集结果可视化
@@ -114,7 +115,7 @@ dds <- DESeqDataSetFromMatrix(
 )
 
 # 预过滤: 至少在12个样本中count≥10 (12 = 较小样本组23的一半)
-keep <- rowSums(counts(dds) >= 10) >= 12
+keep <- rowSums(counts(dds) > 1) >= 1
 dds <- dds[keep, ]
 message(sprintf("预过滤后: %d 个基因", nrow(dds)))
 
@@ -148,6 +149,8 @@ write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
           row.names = FALSE)
 
 # 统计显著差异基因数量 (FDR < 0.05)
+#n_up   <- sum(res$padj < 0.05 & res$log2FoldChange > 0, na.rm = TRUE)
+#n_down <- sum(res$padj < 0.05 & res$log2FoldChange < 0, na.rm = TRUE)
 n_up   <- sum(res$padj < 0.05 & res$log2FoldChange > 0, na.rm = TRUE)
 n_down <- sum(res$padj < 0.05 & res$log2FoldChange < 0, na.rm = TRUE)
 message(sprintf("显著差异基因 (FDR<0.05): %d 上调, %d 下调", n_up, n_down))
@@ -169,7 +172,7 @@ p <- ggplot(pca_df, aes(x = PC1, y = PC2, color = timepoint)) +
   stat_ellipse(type = "norm", level = 0.95, alpha = 0.2) +
   labs(x = paste0("PC1 (", pca_var[1], "%)"),
        y = paste0("PC2 (", pca_var[2], "%)"),
-       title = "GSE242252 PCA: HZ急性期 vs 恢复期 (非配对)") +
+       title = "GSE242252 PCA: HZ Acute vs Convalescent (Unpaired)") +
   scale_color_manual(values = c("acute" = "#E41A1C", "convalescent" = "#377EB8")) +
   theme_minimal(base_size = 14)
 print(p)
@@ -181,21 +184,32 @@ message("PCA图已保存: ", file.path(FIG_DIR, "FigA_PCA_HZ.pdf"))
 # 红=上调(FDR<0.05, LFC>0.5), 蓝=下调, 灰=不显著
 message("绘制火山图...")
 res_plot <- res_df[!is.na(res_df$padj), ]
-res_plot$sig <- "不显著"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 0.58] <- "上调"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.58] <- "下调"
+res_plot$sig <- "NS"
+res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 0.58] <- "Up"
+res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.58] <- "Down"
+
+# 选取Top20 DEGs用于标注 (上调Top10 + 下调Top10, 优先FDR<0.05)
+label_up   <- head(res_plot[res_plot$sig == "Up", ][order(-res_plot[res_plot$sig == "Up", ]$log2FoldChange), ], 10)
+label_down <- head(res_plot[res_plot$sig == "Down", ][order(res_plot[res_plot$sig == "Down", ]$log2FoldChange), ], 10)
+label_genes <- rbind(label_up, label_down)
+# 基因名: 有symbol用symbol, 无则用Ensembl ID的前10位
+label_genes$label <- ifelse(is.na(label_genes$symbol) | label_genes$symbol == "",
+                            substr(label_genes$gene_id, 1, 10), label_genes$symbol)
 
 pdf(file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"), width = 10, height = 8)
 p <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj), color = sig)) +
   geom_point(alpha = 0.4, size = 0.6) +
-  geom_vline(xintercept = 0, color = "grey50", linewidth = 0.5) +           # LFC=0线
-  geom_vline(xintercept = c(-0.58, 0.58), linetype = "dashed", alpha = 0.3) +     # |LFC|=1线
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.3) + # FDR=0.05线
-  scale_color_manual(values = c("下调" = "#377EB8", "不显著" = "grey80", "上调" = "#E41A1C")) +
-  labs(x = "log2 倍数变化 (急性期 vs 恢复期)",
-       y = expression(-log[10](调整后p值)),
-       title = "GSE242252: HZ急性期 vs 恢复期 (非配对)",
-       subtitle = paste0(n_up, " 上调, ", n_down, " 下调 (FDR<0.05)")) +
+  geom_vline(xintercept = 0, color = "grey50", linewidth = 0.5) +
+  geom_vline(xintercept = c(-0.58, 0.58), linetype = "dashed", alpha = 0.3) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.3) +
+  scale_color_manual(values = c("Down" = "#377EB8", "NS" = "grey80", "Up" = "#E41A1C")) +
+  ggrepel::geom_text_repel(data = label_genes,
+                           aes(label = label), size = 3, max.overlaps = 20) +
+  labs(x = "log2 Fold Change (acute vs convalescent)",
+       y = expression(-log[10](adjusted~p-value)),
+       title = "GSE242252: HZ Acute vs Convalescent (Unpaired)",
+       subtitle = paste0(n_up, " up, ", n_down, " down (FDR<0.05)")) +
+  scale_x_continuous(limits = c(-3, 3)) +
   theme_minimal(base_size = 14) +
   theme(legend.position = "bottom")
 print(p)
@@ -240,7 +254,7 @@ if (nrow(sig_genes) >= 5) {
            annotation_colors = list(
              Timepoint = c(acute = "#E41A1C", convalescent = "#377EB8")),
            show_colnames = FALSE,
-           main = paste0("GSE242252: 显著差异基因 (FDR<0.05, |LFC|>1, n=", nrow(sig_genes), ")"))
+           main = paste0("GSE242252: DEGs (FDR<0.05, |LFC|>1, n=", nrow(sig_genes), ")"))
   dev.off()
   message("热图已保存: ", file.path(FIG_DIR, "FigA_Heatmap_DEGs.pdf"))
 } else {
@@ -271,7 +285,7 @@ if (length(up_ids) >= 5) {
     # GO气泡图
     pdf(file.path(FIG_DIR, "FigA_GO_dotplot.pdf"), width = 12, height = 7)
     print(dotplot(go_up, showCategory = 15, font.size = 10) +
-          ggtitle("GO BP: HZ急性期上调基因"))
+          ggtitle("GO BP: HZ Acute Up-regulated Genes"))
     dev.off()
     message(sprintf("GO上调结果: %d terms, 气泡图已保存", nrow(go_up)))
   } else {
@@ -290,7 +304,7 @@ if (length(down_ids) >= 5) {
 
     pdf(file.path(FIG_DIR, "FigA_GO_down_dotplot.pdf"), width = 12, height = 7)
     print(dotplot(go_down, showCategory = 15, font.size = 10) +
-          ggtitle("GO BP: HZ急性期下调基因"))
+          ggtitle("GO BP: HZ Acute Down-regulated Genes"))
     dev.off()
     message(sprintf("GO下调结果: %d terms, 气泡图已保存", nrow(go_down)))
   } else {
@@ -313,7 +327,7 @@ if (nrow(up_entrez) >= 5) {
 
     pdf(file.path(FIG_DIR, "FigA_KEGG_dotplot.pdf"), width = 12, height = 6)
     print(dotplot(kk_up, showCategory = 15, font.size = 10) +
-          ggtitle("KEGG: HZ急性期上调基因"))
+          ggtitle("KEGG: HZ Acute Up-regulated Genes"))
     dev.off()
     message(sprintf("KEGG上调: %d pathways, 气泡图已保存", nrow(kk_up)))
   } else {
@@ -330,7 +344,7 @@ if (nrow(down_entrez) >= 5) {
 
     pdf(file.path(FIG_DIR, "FigA_KEGG_down_dotplot.pdf"), width = 12, height = 6)
     print(dotplot(kk_down, showCategory = 15, font.size = 10) +
-          ggtitle("KEGG: HZ急性期下调基因"))
+          ggtitle("KEGG: HZ Acute Down-regulated Genes"))
     dev.off()
     message(sprintf("KEGG下调: %d pathways, 气泡图已保存", nrow(kk_down)))
   } else {
