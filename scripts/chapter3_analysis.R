@@ -53,7 +53,7 @@ set.seed(42)  # 设置随机种子，确保结果可复现
 # 定义输出目录
 RES_HZ  <- file.path(PROJ_ROOT, "results", "GSE242252")   # HZ Bulk数据结果
 RES_RZV <- file.path(PROJ_ROOT, "results", "GSE249632")   # RZV scRNA数据结果
-FIG_DIR <- file.path(PROJ_ROOT, "results", "chapter3_figures")  # 图片输出
+FIG_DIR <- file.path(PROJ_ROOT, "results", "rnaseq")  # 图片输出
 dir.create(RES_HZ,  recursive = TRUE, showWarnings = FALSE)
 dir.create(RES_RZV, recursive = TRUE, showWarnings = FALSE)
 dir.create(FIG_DIR, recursive = TRUE, showWarnings = FALSE)
@@ -130,6 +130,37 @@ print(summary(res))
 # 保存完整结果到CSV
 res_df <- as.data.frame(res)
 res_df$gene_id <- rownames(res_df)
+
+# --- 添加基因Symbol列 ---
+# 方法: 从已有的注释文件(由Python mygene注释生成)读取EnsemblID→Symbol映射
+annot_file <- file.path(RES_HZ, "DE_HZ_annotated.csv")
+if (file.exists(annot_file)) {
+  annot <- read.csv(annot_file)
+  # 构建映射表: Ensembl ID (去版本号) → Symbol
+  annot$ensembl_clean <- gsub("\\..*", "", annot$gene_id)
+  id2sym <- setNames(annot$symbol, annot$ensembl_clean)
+  # 为结果添加symbol列
+  res_df$ensembl_clean <- gsub("\\..*", "", res_df$gene_id)
+  res_df$symbol <- id2sym[res_df$ensembl_clean]
+  res_df$ensembl_clean <- NULL  # 删除临时列
+  message(sprintf("已添加基因Symbol列 (匹配 %d / %d 个基因)",
+                  sum(!is.na(res_df$symbol)), nrow(res_df)))
+} else {
+  # 如果注释文件不存在, 尝试用org.Hs.eg.db直接映射
+  message("注释文件不存在, 尝试用org.Hs.eg.db...")
+  if (requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
+    library(org.Hs.eg.db)
+    gene_ids <- gsub("\\..*", "", res_df$gene_id)
+    res_df$symbol <- mapIds(org.Hs.eg.db, keys = gene_ids,
+                            column = "SYMBOL", keytype = "ENSEMBL",
+                            multiVals = "first")
+    message(sprintf("已通过org.Hs.eg.db添加Symbol列"))
+  } else {
+    res_df$symbol <- NA
+    message("警告: 无法添加Symbol列 (注释文件和org.Hs.eg.db均不可用)")
+  }
+}
+
 write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
           row.names = FALSE)
 
@@ -168,14 +199,14 @@ message("PCA图已保存: ", file.path(FIG_DIR, "FigA_PCA_HZ.pdf"))
 message("绘制火山图...")
 res_plot <- res_df[!is.na(res_df$padj), ]
 res_plot$sig <- "不显著"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 0.5] <- "上调"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.5] <- "下调"
+res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 0.58] <- "上调"
+res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.58] <- "下调"
 
 pdf(file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"), width = 10, height = 8)
 p <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj), color = sig)) +
   geom_point(alpha = 0.4, size = 0.6) +
   geom_vline(xintercept = 0, color = "grey50", linewidth = 0.5) +           # LFC=0线
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", alpha = 0.3) +     # |LFC|=1线
+  geom_vline(xintercept = c(-0.58, 0.58), linetype = "dashed", alpha = 0.3) +     # |LFC|=1线
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.3) + # FDR=0.05线
   scale_color_manual(values = c("下调" = "#377EB8", "不显著" = "grey80", "上调" = "#E41A1C")) +
   labs(x = "log2 倍数变化 (急性期 vs 恢复期)",
