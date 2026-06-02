@@ -48,6 +48,7 @@ suppressPackageStartupMessages({
   library(pheatmap)      # 热图
   library(RColorBrewer)  # 调色板
   library(ggrepel)       # 火山图基因标签防重叠
+  library(UpSetR)        # DEG重叠Upset图
   library(clusterProfiler) # GO/KEGG富集分析
   library(org.Hs.eg.db)   # 基因ID映射(Ensembl→Symbol→Entrez)
   library(enrichplot)     # 富集结果可视化
@@ -415,6 +416,117 @@ logfc_mat <- do.call(cbind, lapply(logfc_list, function(x) {
 }))
 write.csv(logfc_mat, file.path(RES_RZV, "logFC_matrix_all_timepoints.csv"))
 message("logFC矩阵已保存: ", file.path(RES_RZV, "logFC_matrix_all_timepoints.csv"))
+
+# --- B7. 各时间点火山图 ×4 ---
+message("绘制RZV各时间点火山图...")
+for (tp in names(de_all)) {
+  de <- de_all[[tp]]
+  de_plot <- de[!is.na(de$adj.P.Val), ]
+  de_plot$sig <- "NS"
+  de_plot$sig[de_plot$adj.P.Val < 0.05 & de_plot$logFC > LFC_CUTOFF] <- "Up"
+  de_plot$sig[de_plot$adj.P.Val < 0.05 & de_plot$logFC < -LFC_CUTOFF] <- "Down"
+
+  n_u <- sum(de_plot$sig == "Up"); n_d <- sum(de_plot$sig == "Down")
+  # 安全取top8上调+top8下调
+  up_sub   <- de_plot[de_plot$sig == "Up", , drop = FALSE]
+  down_sub <- de_plot[de_plot$sig == "Down", , drop = FALSE]
+  up_sub   <- up_sub[order(-up_sub$logFC), , drop = FALSE]
+  down_sub <- down_sub[order(down_sub$logFC), , drop = FALSE]
+  label_top <- rbind(
+    if (nrow(up_sub) > 0) head(up_sub, 8) else NULL,
+    if (nrow(down_sub) > 0) head(down_sub, 8) else NULL
+  )
+  # 映射symbol
+  label_ids <- gsub("\\..*", "", label_top$gene_id)
+  label_top$symbol <- mapIds(org.Hs.eg.db, keys = label_ids,
+                              column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+  label_top$label <- ifelse(is.na(label_top$symbol), substr(label_top$gene_id, 1, 10), label_top$symbol)
+
+  xmax <- max(abs(de_plot$logFC), na.rm = TRUE) * 1.05
+  pdf(file.path(FIG_DIR, paste0("FigB_Volcano_", tp, ".pdf")), width = 9, height = 7)
+  p <- ggplot(de_plot, aes(x = logFC, y = -log10(adj.P.Val), color = sig)) +
+    geom_point(alpha = 0.3, size = 0.5) +
+    geom_vline(xintercept = c(-LFC_CUTOFF, LFC_CUTOFF), linetype = "dashed", alpha = 0.3) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.3) +
+    scale_color_manual(values = c("Down" = "#377EB8", "NS" = "grey80", "Up" = "#E41A1C")) +
+    ggrepel::geom_text_repel(data = label_top, aes(label = label), size = 2.8,
+                             max.overlaps = 15, segment.size = 0.2) +
+    scale_x_continuous(limits = c(-xmax, xmax)) +
+    labs(x = "log2 Fold Change", y = "-log10(adjusted p-value)",
+         title = paste0("RZV ", tp, " vs D0"),
+         subtitle = paste0(n_u, " up, ", n_d, " down (FDR<0.05, |LFC|>", LFC_CUTOFF, ")")) +
+    theme_minimal(base_size = 13) + theme(legend.position = "bottom")
+  print(p)
+  dev.off()
+}
+message("RZV火山图已保存: FigB_Volcano_*.pdf")
+
+# --- B8. Upset图: DEG重叠分析 ---
+message("绘制DEG重叠Upset图...")
+library(UpSetR)
+# 构建二元矩阵: 基因 × 时间点(是否显著)
+deg_genes <- unique(unlist(lapply(de_all, function(x)
+  x$gene_id[x$adj.P.Val < 0.05 & abs(x$logFC) > LFC_CUTOFF])))
+deg_mat <- data.frame(row.names = deg_genes)
+for (tp in names(de_all)) {
+  de <- de_all[[tp]]
+  sig_ids <- de$gene_id[de$adj.P.Val < 0.05 & abs(de$logFC) > LFC_CUTOFF]
+  deg_mat[[tp]] <- as.integer(deg_genes %in% sig_ids)
+}
+
+if (nrow(deg_mat) >= 5) {
+  pdf(file.path(FIG_DIR, "FigB_Upset_DEGs.pdf"), width = 10, height = 6)
+  upset(deg_mat, sets = names(de_all),
+        order.by = "freq", keep.order = TRUE,
+        main.bar.color = "#2980b9", sets.bar.color = "#1a5276",
+        text.scale = c(1.3, 1.3, 1.1, 1.1, 1.5, 1.2))
+  dev.off()
+  message("Upset图已保存: FigB_Upset_DEGs.pdf")
+} else {
+  message("DEG太少, 跳过Upset图")
+}
+
+# --- B9. 免疫关键基因点阵图 ---
+message("绘制免疫关键基因点阵图...")
+immune_genes <- c("ZEB2", "CTLA4", "ICOS", "HAVCR2", "TIGIT", "PDCD1",
+                  "CD38", "GZMA", "GNLY", "PRF1", "IRF4", "TBX21",
+                  "CCR7", "IL7R", "TCF7", "CXCR5", "BCL6", "TOX",
+                  "ISG15", "MX1", "RSAD2", "STAT1")
+# 从logfc_mat提取这些基因的数据
+logfc_all <- as.data.frame(logfc_mat)
+logfc_all$ensembl_clean <- gsub("\\..*", "", rownames(logfc_all))
+logfc_all$symbol <- mapIds(org.Hs.eg.db, keys = logfc_all$ensembl_clean,
+                            column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+dot_genes <- logfc_all[logfc_all$symbol %in% immune_genes, ]
+dot_genes <- dot_genes[!duplicated(dot_genes$symbol), ]
+rownames(dot_genes) <- dot_genes$symbol
+dot_genes <- dot_genes[intersect(immune_genes, rownames(dot_genes)),
+                        c("D14", "D60", "D74", "D365")]
+
+if (nrow(dot_genes) >= 5) {
+  # 转为长格式
+  dot_long <- data.frame()
+  for (g in rownames(dot_genes)) {
+    for (tp in colnames(dot_genes)) {
+      dot_long <- rbind(dot_long, data.frame(
+        gene = g, timepoint = tp, LFC = dot_genes[g, tp]))
+    }
+  }
+  dot_long$timepoint <- factor(dot_long$timepoint, levels = c("D14", "D60", "D74", "D365"))
+
+  pdf(file.path(FIG_DIR, "FigB_ImmuneGenes_dotplot.pdf"), width = 10, height = 7)
+  p <- ggplot(dot_long, aes(x = timepoint, y = gene, size = abs(LFC), color = LFC)) +
+    geom_point() +
+    scale_color_gradient2(low = "#377EB8", mid = "white", high = "#E41A1C", midpoint = 0) +
+    scale_size(range = c(1, 8)) +
+    labs(x = "Timepoint", y = "", title = "Key Immune Genes Across RZV Vaccination Timeline",
+         size = "|LFC|", color = "LFC") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.y = element_text(face = "bold"))
+  print(p)
+  dev.off()
+  message("免疫基因点阵图已保存: FigB_ImmuneGenes_dotplot.pdf")
+}
 
 
 # #############################################################################
