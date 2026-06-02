@@ -188,7 +188,7 @@ message("PCA图已保存: ", file.path(FIG_DIR, "FigA_PCA_HZ.pdf"))
 
 # --- A6. 火山图 ---
 # X轴=log2FoldChange, Y轴=-log10(adjusted p-value)
-# 红=上调(FDR<0.05, LFC>0.5), 蓝=下调, 灰=不显著
+# 红=上调(FDR<FDR_CUTOFF, |LFC|>LFC_CUTOFF), 蓝=下调, 灰=不显著
 message("绘制火山图...")
 res_plot <- res_df[!is.na(res_df$padj), ]
 res_plot$sig <- "NS"
@@ -262,7 +262,7 @@ if (nrow(sig_genes) >= 5) {
            annotation_colors = list(
              Timepoint = c(acute = "#E41A1C", convalescent = "#377EB8")),
            show_colnames = FALSE,
-           main = paste0("GSE242252: DEGs (FDR<0.05, |LFC|>1, n=", nrow(sig_genes), ")"))
+           main = paste0("GSE242252: DEGs (FDR<", FDR_CUTOFF, ", |LFC|>", LFC_CUTOFF, ", n=", nrow(sig_genes), ")"))
   dev.off()
   message("热图已保存: ", file.path(FIG_DIR, "FigA_Heatmap_DEGs.pdf"))
 } else {
