@@ -567,6 +567,12 @@ if (length(multi_tp_genes) > 0) {
   dd_long$timepoint <- factor(dd_long$timepoint, levels = c("D14", "D60", "D74", "D365"))
   dd_long$gene <- factor(dd_long$gene, levels = rev(rownames(dd_rows)))
 
+  # 保存数据: 宽格式(基因×时间点LFC矩阵) + 显著性计数
+  dd_wide <- as.data.frame(dd_rows)
+  dd_wide$n_significant_timepoints <- deg_freq[top25_ids]
+  write.csv(dd_wide, file.path(RES_RZV, "DataDriven_Top25_DEGs.csv"))
+  message("数据驱动Top25基因表已保存: ", file.path(RES_RZV, "DataDriven_Top25_DEGs.csv"))
+
   pdf(file.path(FIG_DIR, "FigB_DataDriven_dotplot.pdf"), width = 10, height = 8)
   p <- ggplot(dd_long, aes(x = timepoint, y = gene, size = abs(LFC), color = LFC)) +
     geom_point() +
