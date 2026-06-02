@@ -461,20 +461,46 @@ for (tp in names(de_all)) {
 }
 message("RZV火山图已保存: FigB_Volcano_*.pdf")
 
-# --- B8. Upset图: DEG重叠分析 ---
+# --- B8. DEG时间线柱状图 ---
+message("绘制DEG时间线柱状图...")
+timeline_counts <- data.frame(
+  timepoint = factor(c("D14","D60","D74","D365"), levels = c("D14","D60","D74","D365")),
+  up   = sapply(de_all, function(x) sum(x$adj.P.Val < 0.05 & x$logFC > LFC_CUTOFF, na.rm = TRUE)),
+  down = sapply(de_all, function(x) sum(x$adj.P.Val < 0.05 & x$logFC < -LFC_CUTOFF, na.rm = TRUE))
+)
+pdf(file.path(FIG_DIR, "FigB_DEG_timeline_barchart.pdf"), width = 8, height = 5)
+p <- ggplot(timeline_counts, aes(x = timepoint)) +
+  geom_bar(aes(y = up, fill = "Up"), stat = "identity", width = 0.6, alpha = 0.9) +
+  geom_bar(aes(y = -down, fill = "Down"), stat = "identity", width = 0.6, alpha = 0.9) +
+  geom_text(aes(y = up, label = up), vjust = -0.3, size = 4, fontface = "bold") +
+  geom_text(aes(y = -down, label = down), vjust = 1.3, size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("Up" = "#E41A1C", "Down" = "#377EB8")) +
+  geom_hline(yintercept = 0, linewidth = 0.5) +
+  labs(x = "Timepoint vs D0", y = "Number of DEGs",
+       title = "RZV Vaccine: CD4+ T Cell DEGs Across Vaccination Timeline",
+       subtitle = paste0("FDR<0.05, |LFC|>", LFC_CUTOFF),
+       fill = "Direction") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+print(p)
+dev.off()
+message("DEG时间线柱状图已保存: FigB_DEG_timeline_barchart.pdf")
+
+# --- B9. Upset图: DEG重叠分析 ---
 message("绘制DEG重叠Upset图...")
-library(UpSetR)
 # 构建二元矩阵: 基因 × 时间点(是否显著)
 deg_genes <- unique(unlist(lapply(de_all, function(x)
   x$gene_id[x$adj.P.Val < 0.05 & abs(x$logFC) > LFC_CUTOFF])))
-deg_mat <- data.frame(row.names = deg_genes)
-for (tp in names(de_all)) {
-  de <- de_all[[tp]]
-  sig_ids <- de$gene_id[de$adj.P.Val < 0.05 & abs(de$logFC) > LFC_CUTOFF]
-  deg_mat[[tp]] <- as.integer(deg_genes %in% sig_ids)
-}
+message(sprintf("  Total unique DEGs across all timepoints: %d", length(deg_genes)))
+if (length(deg_genes) >= 5) {
+  deg_mat <- as.data.frame(lapply(de_all, function(x) {
+    sig_ids <- x$gene_id[x$adj.P.Val < 0.05 & abs(x$logFC) > LFC_CUTOFF]
+    as.integer(deg_genes %in% sig_ids)
+  }))
+  rownames(deg_mat) <- deg_genes
+  colnames(deg_mat) <- names(de_all)
+  message("  DEGs per timepoint: ", paste(colSums(deg_mat), collapse = ", "))
 
-if (nrow(deg_mat) >= 5) {
   pdf(file.path(FIG_DIR, "FigB_Upset_DEGs.pdf"), width = 10, height = 6)
   upset(deg_mat, sets = names(de_all),
         order.by = "freq", keep.order = TRUE,
@@ -486,7 +512,7 @@ if (nrow(deg_mat) >= 5) {
   message("DEG太少, 跳过Upset图")
 }
 
-# --- B9. 免疫关键基因点阵图 (按功能分类 + 括号标注) ---
+# --- B10. 免疫关键基因点阵图 (按功能分类 + 括号标注) ---
 message("绘制免疫关键基因点阵图(按分类)...")
 # 基因按功能分类, 按类别排序
 gene_categories <- list(
@@ -546,7 +572,7 @@ if (nrow(dot_genes) >= 5) {
   message("免疫基因点阵图(按类别排序)已保存: FigB_ImmuneGenes_dotplot.pdf")
 }
 
-# --- B10. 数据驱动基因点阵图 (显著≥2个时间点, Top25 |LFC|) ---
+# --- B11. 数据驱动基因点阵图 (显著≥2个时间点, Top25 |LFC|) ---
 message("绘制数据驱动基因点阵图...")
 # 筛选至少在2个时间点显著(FDR<0.05, |LFC|>阈值)的基因
 deg_list <- lapply(de_all, function(x) {
