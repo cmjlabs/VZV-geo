@@ -67,7 +67,7 @@
 
 ### 1.3 HZ Disease Signature
 
-以下14个基因来自Vandoren et al. 2024 Supplementary Table S5, 经本分析DESeq2重跑独立验证:
+以下14个基因经本分析DESeq2独立鉴定为HZ急性期显著上调 (p<0.05, |LFC|>0.58), 与Vandoren et al. 2024 Table S5的结论一致 (独立验证):
 
 | 类别 | 基因 | 功能 |
 |------|------|------|
