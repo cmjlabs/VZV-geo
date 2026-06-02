@@ -11,3 +11,4 @@ __pycache__/
 skills-lock.json
 cell_counts_qcpass.csv
 raw_counts.csv
+.Rproj.user

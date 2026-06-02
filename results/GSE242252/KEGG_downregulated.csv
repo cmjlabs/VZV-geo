@@ -1,0 +1,2 @@
+"","category","subcategory","ID","Description","GeneRatio","BgRatio","RichFactor","FoldEnrichment","zScore","pvalue","p.adjust","qvalue","geneID","Count"
+"hsa04010","Environmental Information Processing","Signal transduction","hsa04010","MAPK signaling pathway","3/4","300/9393",0.01,23.4825,8.16866342270307,0.000125999242608861,0.0442257341557101,0.0442257341557101,"785/284/3554",3
