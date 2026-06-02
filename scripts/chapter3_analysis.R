@@ -160,7 +160,7 @@ write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
 # 统计显著差异基因数量 (基于已过滤symbol的基因)
 n_up   <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange > 0, na.rm = TRUE)
 n_down <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange < 0, na.rm = TRUE)
-message(sprintf("显著差异基因 (FDR<FDR_CUTOFF): %d 上调, %d 下调 (已过滤无Symbol)", n_up, n_down))
+message(sprintf("显著差异基因 (FDR<%.2f): %d 上调, %d 下调 (已过滤无Symbol)", FDR_CUTOFF, n_up, n_down))
 
 # --- A5. PCA主成分分析 ---
 # 用vst(variance stabilizing transformation)标准化后做PCA
@@ -216,7 +216,7 @@ p <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj), color = sig)) +
   labs(x = "log2 Fold Change (acute vs convalescent)",
        y = expression(-log[10](adjusted~p-value)),
        title = "GSE242252: HZ Acute vs Convalescent (Unpaired)",
-       subtitle = paste0(n_up, " up, ", n_down, " down (FDR<FDR_CUTOFF)")) +
+       subtitle = paste0(n_up, " up, ", n_down, " down (FDR<", FDR_CUTOFF, ")")) +
   scale_x_continuous(limits = c(-3, 3)) +
   theme_minimal(base_size = 14) +
   theme(legend.position = "bottom")
@@ -382,7 +382,7 @@ for (coef in tp_coefs) {
 
   n_u <- sum(res$adj.P.Val < 0.05 & res$logFC > 0, na.rm = TRUE)
   n_d <- sum(res$adj.P.Val < 0.05 & res$logFC < 0, na.rm = TRUE)
-  message(sprintf("  %s vs D0: %d 上调, %d 下调 (FDR<FDR_CUTOFF)", tp_name, n_u, n_d))
+  message(sprintf("  %s vs D0: %d up, %d down (FDR<%.2f)", tp_name, n_u, n_d, FDR_CUTOFF))
 
   de_all[[tp_name]] <- res
   write.csv(res, file.path(RES_RZV, paste0("DE_", tp_name, "_vs_D0.csv")),
