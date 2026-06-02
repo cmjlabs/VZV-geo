@@ -269,94 +269,49 @@ if (nrow(sig_genes) >= 5) {
   message("显著差异基因不足5个, 跳过热图")
 }
 
-# --- A9. GO富集分析 ---
-# 对上调和下调的显著基因分别做GO Biological Process富集
+# --- A9. GO富集分析 (所有显著DEG合并, 不区分上下调) ---
 message("运行GO富集分析...")
 
-# 获取上调和下调的显著基因Ensembl ID
-up_ids   <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < FDR_CUTOFF & res_df$log2FoldChange > LFC_CUTOFF]
-down_ids <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < FDR_CUTOFF & res_df$log2FoldChange < -LFC_CUTOFF]
-up_ids   <- unique(gsub("\\..*", "", up_ids))
-down_ids <- unique(gsub("\\..*", "", down_ids))
+# 取所有显著差异基因 (FDR<阈值, |LFC|>阈值, 不区分方向)
+all_deg_ids <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < FDR_CUTOFF & abs(res_df$log2FoldChange) > LFC_CUTOFF]
+all_deg_ids <- unique(gsub("\\..*", "", all_deg_ids))
+message(sprintf("  合并DEG用于富集: %d 个基因 (FDR<%.2f, |LFC|>%.2f)", length(all_deg_ids), FDR_CUTOFF, LFC_CUTOFF))
 
-message(sprintf("  上调基因(用于GO): %d, 下调基因: %d", length(up_ids), length(down_ids)))
+if (length(all_deg_ids) >= 5) {
+  go_all <- enrichGO(gene = all_deg_ids, OrgDb = org.Hs.eg.db,
+                     keyType = "ENSEMBL", ont = "BP",
+                     pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
+  if (!is.null(go_all) && nrow(go_all) > 0) {
+    go_all <- simplify(go_all, cutoff = 0.7)
+    write.csv(as.data.frame(go_all), file.path(RES_HZ, "GO_BP_enrichment.csv"))
 
-# GO BP富集 — 上调基因
-if (length(up_ids) >= 5) {
-  go_up <- enrichGO(gene = up_ids, OrgDb = org.Hs.eg.db,
-                    keyType = "ENSEMBL", ont = "BP",
-                    pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
-  if (!is.null(go_up) && nrow(go_up) > 0) {
-    go_up <- simplify(go_up, cutoff = 0.7)  # 合并冗余GO terms
-    write.csv(as.data.frame(go_up), file.path(RES_HZ, "GO_BP_upregulated.csv"))
-
-    # GO气泡图
     pdf(file.path(FIG_DIR, "FigA_GO_dotplot.pdf"), width = 12, height = 7)
-    print(dotplot(go_up, showCategory = 15, font.size = 10) +
-          ggtitle("GO BP: HZ Acute Up-regulated Genes"))
+    print(dotplot(go_all, showCategory = 15, font.size = 10) +
+          ggtitle("GO BP: HZ Acute vs Convalescent DEGs"))
     dev.off()
-    message(sprintf("GO上调结果: %d terms, 气泡图已保存", nrow(go_up)))
+    message(sprintf("GO富集结果: %d terms, 气泡图已保存", nrow(go_all)))
   } else {
-    message("GO上调: 无显著富集terms")
+    message("GO富集: 无显著terms")
   }
 }
 
-# GO BP富集 — 下调基因
-if (length(down_ids) >= 5) {
-  go_down <- enrichGO(gene = down_ids, OrgDb = org.Hs.eg.db,
-                      keyType = "ENSEMBL", ont = "BP",
-                      pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
-  if (!is.null(go_down) && nrow(go_down) > 0) {
-    go_down <- simplify(go_down, cutoff = 0.7)
-    write.csv(as.data.frame(go_down), file.path(RES_HZ, "GO_BP_downregulated.csv"))
-
-    pdf(file.path(FIG_DIR, "FigA_GO_down_dotplot.pdf"), width = 12, height = 7)
-    print(dotplot(go_down, showCategory = 15, font.size = 10) +
-          ggtitle("GO BP: HZ Acute Down-regulated Genes"))
-    dev.off()
-    message(sprintf("GO下调结果: %d terms, 气泡图已保存", nrow(go_down)))
-  } else {
-    message("GO下调: 无显著富集terms")
-  }
-}
-
-# --- A10. KEGG富集分析 ---
+# --- A10. KEGG富集分析 (所有显著DEG合并) ---
 message("运行KEGG富集分析...")
-# 需要将Ensembl ID转为Entrez ID
-up_entrez <- bitr(up_ids, fromType = "ENSEMBL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
-down_entrez <- bitr(down_ids, fromType = "ENSEMBL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+all_entrez <- bitr(all_deg_ids, fromType = "ENSEMBL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
 
-# KEGG — 上调基因
-if (nrow(up_entrez) >= 5) {
-  kk_up <- enrichKEGG(gene = up_entrez$ENTREZID, organism = "hsa",
-                      pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
-  if (!is.null(kk_up) && nrow(kk_up) > 0) {
-    write.csv(as.data.frame(kk_up), file.path(RES_HZ, "KEGG_upregulated.csv"))
+if (nrow(all_entrez) >= 5) {
+  kk_all <- enrichKEGG(gene = all_entrez$ENTREZID, organism = "hsa",
+                       pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
+  if (!is.null(kk_all) && nrow(kk_all) > 0) {
+    write.csv(as.data.frame(kk_all), file.path(RES_HZ, "KEGG_enrichment.csv"))
 
     pdf(file.path(FIG_DIR, "FigA_KEGG_dotplot.pdf"), width = 12, height = 6)
-    print(dotplot(kk_up, showCategory = 15, font.size = 10) +
-          ggtitle("KEGG: HZ Acute Up-regulated Genes"))
+    print(dotplot(kk_all, showCategory = 15, font.size = 10) +
+          ggtitle("KEGG: HZ Acute vs Convalescent DEGs"))
     dev.off()
-    message(sprintf("KEGG上调: %d pathways, 气泡图已保存", nrow(kk_up)))
+    message(sprintf("KEGG富集: %d pathways, 气泡图已保存", nrow(kk_all)))
   } else {
-    message("KEGG上调: 无显著富集pathways")
-  }
-}
-
-# KEGG — 下调基因
-if (nrow(down_entrez) >= 5) {
-  kk_down <- enrichKEGG(gene = down_entrez$ENTREZID, organism = "hsa",
-                        pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2)
-  if (!is.null(kk_down) && nrow(kk_down) > 0) {
-    write.csv(as.data.frame(kk_down), file.path(RES_HZ, "KEGG_downregulated.csv"))
-
-    pdf(file.path(FIG_DIR, "FigA_KEGG_down_dotplot.pdf"), width = 12, height = 6)
-    print(dotplot(kk_down, showCategory = 15, font.size = 10) +
-          ggtitle("KEGG: HZ Acute Down-regulated Genes"))
-    dev.off()
-    message(sprintf("KEGG下调: %d pathways, 气泡图已保存", nrow(kk_down)))
-  } else {
-    message("KEGG下调: 无显著富集pathways")
+    message("KEGG富集: 无显著pathways")
   }
 }
 
