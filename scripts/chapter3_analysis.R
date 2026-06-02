@@ -391,9 +391,9 @@ for (coef in tp_coefs) {
   res <- topTable(fit, coef = coef, number = Inf, sort.by = "P")
   res$gene_id <- rownames(res)
 
-  n_u <- sum(res$adj.P.Val < 0.05 & res$logFC > 0, na.rm = TRUE)
-  n_d <- sum(res$adj.P.Val < 0.05 & res$logFC < 0, na.rm = TRUE)
-  message(sprintf("  %s vs D0: %d up, %d down (p<%.2f)", tp_name, n_u, n_d, P_CUTOFF))
+  n_u <- sum(res$adj.P.Val < 0.05 & res$logFC > LFC_CUTOFF, na.rm = TRUE)
+  n_d <- sum(res$adj.P.Val < 0.05 & res$logFC < -LFC_CUTOFF, na.rm = TRUE)
+  message(sprintf("  %s vs D0: %d up, %d down (FDR<0.05, |LFC|>%.2f)", tp_name, n_u, n_d, LFC_CUTOFF))
 
   de_all[[tp_name]] <- res
   write.csv(res, file.path(RES_RZV, paste0("DE_", tp_name, "_vs_D0.csv")),
@@ -428,25 +428,67 @@ message("\n", paste(rep("=", 70), collapse = ""))
 message("PART C: 提取关键基因数据")
 message(paste(rep("=", 70), collapse = ""))
 
-# --- C1. HZ疾病Signature基因 (来自原文 Supplementary Table S5) ---
-# 7个最显著上调的ISGs + 增殖/浆细胞标志基因
+# --- C1. HZ疾病Signature基因 ---
+# 从DESeq2结果中自动提取14个关键基因的实际LFC和p值
 hz_sig_genes <- c("IFI44L", "IFI27", "RSAD2", "ISG15", "SERPING1", "SIGLEC1", "IFI44",
                   "TOP2A", "PTTG1", "MZB1", "BATF2", "MX1", "IFIT5", "OASL")
-message("\nHZ疾病Signature基因 (Vandoren et al. 2024 Table S5):")
-message(paste(hz_sig_genes, collapse = ", "))
+hz_sig <- res_df[res_df$symbol %in% hz_sig_genes,
+                 c("symbol", "log2FoldChange", "pvalue", "padj", "baseMean")]
+hz_sig <- hz_sig[match(hz_sig_genes, hz_sig$symbol), ]  # 保持指定顺序
+message("\n=== HZ Disease Signature (Vandoren et al. 2024 Table S5) ===")
+print(hz_sig, row.names = FALSE)
 
 # --- C2. RZV保护Signature基因 ---
-# 在疫苗后持续上调的T细胞分化/调控/记忆基因
+# 从limma结果中自动提取4个基因在所有时间点的LFC
 rzv_sig_genes <- c("ZEB2", "CTLA4", "ICOS", "HAVCR2")
-message("\nRZV保护Signature基因:")
-message(paste(rzv_sig_genes, collapse = ", "))
+rzv_sig <- data.frame(gene = rzv_sig_genes, stringsAsFactors = FALSE)
 
-# --- C3. 各时间点DEG数量汇总(用于DEG时间线柱状图) ---
-message("\n各时间点差异基因数量汇总 (用于图3.4):")
+# 构建Ensembl→Symbol反向映射 (org.Hs.eg.db)
+rzv_all_ids <- unique(unlist(lapply(de_all, function(x) x$gene_id)))
+rzv_clean_ids <- gsub("\\..*", "", rzv_all_ids)
+rzv_id2sym <- mapIds(org.Hs.eg.db, keys = rzv_clean_ids,
+                     column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+
 for (tp in names(de_all)) {
-  n_u <- sum(de_all[[tp]]$adj.P.Val < 0.05 & de_all[[tp]]$logFC > 0, na.rm = TRUE)
-  n_d <- sum(de_all[[tp]]$adj.P.Val < 0.05 & de_all[[tp]]$logFC < 0, na.rm = TRUE)
-  message(sprintf("  %s vs D0: %d ↑ / %d ↓", tp, n_u, n_d))
+  de <- de_all[[tp]]
+  tp_vals <- rep(NA_real_, length(rzv_sig_genes))
+  for (i in seq_along(rzv_sig_genes)) {
+    g <- rzv_sig_genes[i]
+    # 找到symbol匹配的Ensembl ID, 取对应的logFC
+    matched_ids <- names(rzv_id2sym)[!is.na(rzv_id2sym) & rzv_id2sym == g]
+    match_rows <- which(gsub("\\..*", "", de$gene_id) %in% matched_ids)
+    if (length(match_rows) > 0) {
+      tp_vals[i] <- de$logFC[match_rows[1]]
+    }
+  }
+  rzv_sig[[paste0("LFC_", tp)]] <- tp_vals
+}
+
+message("\n=== RZV Protection Signature ===")
+print(rzv_sig, row.names = FALSE)
+
+# --- C3. 导出合并的Signature基因表 ---
+sig_table <- list(
+  HZ_Disease_Signature = hz_sig,
+  RZV_Protection_Signature = rzv_sig,
+  HZ_DEG_summary = data.frame(
+    Total_DEGs = nrow(sig_degs),
+    Up = n_up,
+    Down = n_down,
+    FDR_cutoff = P_CUTOFF,
+    LFC_cutoff = LFC_CUTOFF
+  )
+)
+# 保存为多sheet的RDS
+saveRDS(sig_table, file.path(FIG_DIR, "signature_genes.rds"))
+message("\nSignature基因数据已保存: ", file.path(FIG_DIR, "signature_genes.rds"))
+
+# --- C4. 各时间点DEG数量汇总 (用于DEG时间线柱状图) ---
+message("\n各时间点差异基因数量汇总 (FDR<0.05, |LFC|>", LFC_CUTOFF, "):")
+for (tp in names(de_all)) {
+  n_u <- sum(de_all[[tp]]$adj.P.Val < 0.05 & de_all[[tp]]$logFC > LFC_CUTOFF, na.rm = TRUE)
+  n_d <- sum(de_all[[tp]]$adj.P.Val < 0.05 & de_all[[tp]]$logFC < -LFC_CUTOFF, na.rm = TRUE)
+  message(sprintf("  %s vs D0: %d up / %d down", tp, n_u, n_d))
 }
 
 
