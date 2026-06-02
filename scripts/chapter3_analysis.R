@@ -55,6 +55,10 @@ suppressPackageStartupMessages({
 
 set.seed(42)  # 设置随机种子，确保结果可复现
 
+# === 统一阈值定义 (全文所有分析共用) ===
+FDR_CUTOFF  <- 0.05      # 差异基因显著性阈值
+LFC_CUTOFF  <- 0.58      # 差异基因|log2FC|阈值
+
 # 定义输出目录
 RES_HZ  <- file.path(PROJ_ROOT, "results", "GSE242252")   # HZ Bulk数据结果
 RES_RZV <- file.path(PROJ_ROOT, "results", "GSE249632")   # RZV scRNA数据结果
@@ -126,7 +130,7 @@ dds <- DESeq(dds, parallel = FALSE)
 # contrast = c("timepoint", "acute", "convalescent")
 # 含义: log2(acute/convalescent), 正值=急性期上调
 res <- results(dds, contrast = c("timepoint", "acute", "convalescent"),
-               alpha = 0.05)
+               alpha = FDR_CUTOFF)
 res <- res[order(res$pvalue), ]  # 按p值排序
 
 message("\n=== DESeq2 结果汇总 ===")
@@ -154,9 +158,9 @@ write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
           row.names = FALSE)
 
 # 统计显著差异基因数量 (基于已过滤symbol的基因)
-n_up   <- sum(res_df$padj < 0.05 & res_df$log2FoldChange > 0, na.rm = TRUE)
-n_down <- sum(res_df$padj < 0.05 & res_df$log2FoldChange < 0, na.rm = TRUE)
-message(sprintf("显著差异基因 (FDR<0.05): %d 上调, %d 下调 (已过滤无Symbol)", n_up, n_down))
+n_up   <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange > 0, na.rm = TRUE)
+n_down <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange < 0, na.rm = TRUE)
+message(sprintf("显著差异基因 (FDR<FDR_CUTOFF): %d 上调, %d 下调 (已过滤无Symbol)", n_up, n_down))
 
 # --- A5. PCA主成分分析 ---
 # 用vst(variance stabilizing transformation)标准化后做PCA
@@ -188,8 +192,8 @@ message("PCA图已保存: ", file.path(FIG_DIR, "FigA_PCA_HZ.pdf"))
 message("绘制火山图...")
 res_plot <- res_df[!is.na(res_df$padj), ]
 res_plot$sig <- "NS"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange > 0.58] <- "Up"
-res_plot$sig[res_plot$padj < 0.05 & res_plot$log2FoldChange < -0.58] <- "Down"
+res_plot$sig[res_plot$padj < FDR_CUTOFF & res_plot$log2FoldChange > LFC_CUTOFF] <- "Up"
+res_plot$sig[res_plot$padj < FDR_CUTOFF & res_plot$log2FoldChange < -LFC_CUTOFF] <- "Down"
 
 # 选取Top20 DEGs用于标注 (上调Top10 + 下调Top10, 优先FDR<0.05)
 label_up   <- head(res_plot[res_plot$sig == "Up", ][order(-res_plot[res_plot$sig == "Up", ]$log2FoldChange), ], 10)
@@ -202,15 +206,17 @@ pdf(file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"), width = 10, height = 8)
 p <- ggplot(res_plot, aes(x = log2FoldChange, y = -log10(padj), color = sig)) +
   geom_point(alpha = 0.4, size = 0.6) +
   geom_vline(xintercept = 0, color = "grey50", linewidth = 0.5) +
-  geom_vline(xintercept = c(-0.58, 0.58), linetype = "dashed", alpha = 0.3) +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", alpha = 0.3) +
+  geom_vline(xintercept = c(-LFC_CUTOFF, LFC_CUTOFF), linetype = "dashed", alpha = 0.3) +
+  geom_hline(yintercept = -log10(FDR_CUTOFF), linetype = "dashed", alpha = 0.3) +
   scale_color_manual(values = c("Down" = "#377EB8", "NS" = "grey80", "Up" = "#E41A1C")) +
   ggrepel::geom_text_repel(data = label_genes,
-                           aes(label = label), size = 3, max.overlaps = 20) +
+                           aes(label = label), size = 3, max.overlaps = 20,
+                           segment.color = "black", segment.size = 0.3,
+                           min.segment.length = 0.1, box.padding = 0.5) +
   labs(x = "log2 Fold Change (acute vs convalescent)",
        y = expression(-log[10](adjusted~p-value)),
        title = "GSE242252: HZ Acute vs Convalescent (Unpaired)",
-       subtitle = paste0(n_up, " up, ", n_down, " down (FDR<0.05)")) +
+       subtitle = paste0(n_up, " up, ", n_down, " down (FDR<FDR_CUTOFF)")) +
   scale_x_continuous(limits = c(-3, 3)) +
   theme_minimal(base_size = 14) +
   theme(legend.position = "bottom")
@@ -228,8 +234,8 @@ print(head(top_degs[, c("gene_id", "symbol", "log2FoldChange", "padj")], 20))
 message("绘制差异基因热图...")
 
 # 筛选显著差异基因
-sig_genes <- res_df[!is.na(res_df$padj) & res_df$padj < 0.05 &
-                     abs(res_df$log2FoldChange) > 1, ]
+sig_genes <- res_df[!is.na(res_df$padj) & res_df$padj < FDR_CUTOFF &
+                     abs(res_df$log2FoldChange) > LFC_CUTOFF, ]
 if (nrow(sig_genes) >= 5) {
   # 最多取前50个
   if (nrow(sig_genes) > 50) sig_genes <- head(sig_genes[order(-abs(sig_genes$log2FoldChange)), ], 50)
@@ -268,8 +274,8 @@ if (nrow(sig_genes) >= 5) {
 message("运行GO富集分析...")
 
 # 获取上调和下调的显著基因Ensembl ID
-up_ids   <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < 0.05 & res_df$log2FoldChange > 0.5]
-down_ids <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < 0.05 & res_df$log2FoldChange < -0.5]
+up_ids   <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < FDR_CUTOFF & res_df$log2FoldChange > LFC_CUTOFF]
+down_ids <- res_df$gene_id[!is.na(res_df$padj) & res_df$padj < FDR_CUTOFF & res_df$log2FoldChange < -LFC_CUTOFF]
 up_ids   <- unique(gsub("\\..*", "", up_ids))
 down_ids <- unique(gsub("\\..*", "", down_ids))
 
@@ -421,7 +427,7 @@ for (coef in tp_coefs) {
 
   n_u <- sum(res$adj.P.Val < 0.05 & res$logFC > 0, na.rm = TRUE)
   n_d <- sum(res$adj.P.Val < 0.05 & res$logFC < 0, na.rm = TRUE)
-  message(sprintf("  %s vs D0: %d 上调, %d 下调 (FDR<0.05)", tp_name, n_u, n_d))
+  message(sprintf("  %s vs D0: %d 上调, %d 下调 (FDR<FDR_CUTOFF)", tp_name, n_u, n_d))
 
   de_all[[tp_name]] <- res
   write.csv(res, file.path(RES_RZV, paste0("DE_", tp_name, "_vs_D0.csv")),
