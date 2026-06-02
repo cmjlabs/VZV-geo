@@ -521,35 +521,29 @@ dot_export <- dot_export[, c("category", "D14", "D60", "D74", "D365")]
 write.csv(dot_export, file.path(RES_RZV, "Curated_ImmuneGenes_LFC.csv"))
 
 if (nrow(dot_genes) >= 5) {
-  # 长格式 + 添加类别列
+  # 长格式 (基因按类别排序, 无分面 — 便于手动加注释)
   dot_long <- data.frame()
   for (g in rownames(dot_genes)) {
     for (tp in colnames(dot_genes)) {
       dot_long <- rbind(dot_long, data.frame(
-        gene = g, timepoint = tp, LFC = dot_genes[g, tp],
-        category = gene2cat[[g]], stringsAsFactors = FALSE))
+        gene = g, timepoint = tp, LFC = dot_genes[g, tp]))
     }
   }
   dot_long$timepoint <- factor(dot_long$timepoint, levels = c("D14", "D60", "D74", "D365"))
   dot_long$gene <- factor(dot_long$gene, levels = rev(immune_genes))
-  dot_long$category <- factor(dot_long$category, levels = names(gene_categories))
 
-  pdf(file.path(FIG_DIR, "FigB_ImmuneGenes_dotplot.pdf"), width = 14, height = 8)
+  pdf(file.path(FIG_DIR, "FigB_ImmuneGenes_dotplot.pdf"), width = 10, height = 7)
   p <- ggplot(dot_long, aes(x = timepoint, y = gene, size = abs(LFC), color = LFC)) +
     geom_point() +
     scale_color_gradient2(low = "#377EB8", mid = "white", high = "#E41A1C", midpoint = 0) +
-    scale_size(range = c(1, 7)) +
-    facet_wrap(~ category, scales = "free_y", nrow = 1, strip.position = "top") +
-    labs(x = "Timepoint", y = "",
-         title = "Key Immune Genes During RZV Vaccination (Curated, by Category)",
+    scale_size(range = c(1, 8)) +
+    labs(x = "Timepoint", y = "", title = "Key Immune Genes Across RZV Vaccination Timeline",
          size = "|LFC|", color = "LFC") +
     theme_minimal(base_size = 12) +
-    theme(axis.text.y = element_text(size = 9),
-          strip.text = element_text(size = 9, face = "bold"),
-          panel.spacing = unit(1, "lines"))
+    theme(axis.text.y = element_text(face = "bold"))
   print(p)
   dev.off()
-  message("免疫基因点阵图(分面)已保存: FigB_ImmuneGenes_dotplot.pdf")
+  message("免疫基因点阵图(按类别排序)已保存: FigB_ImmuneGenes_dotplot.pdf")
 }
 
 # --- B10. 数据驱动基因点阵图 (显著≥2个时间点, Top25 |LFC|) ---
