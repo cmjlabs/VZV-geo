@@ -503,6 +503,10 @@ rownames(dot_genes) <- dot_genes$symbol
 dot_genes <- dot_genes[intersect(immune_genes, rownames(dot_genes)),
                         c("D14", "D60", "D74", "D365")]
 
+# 导出人工筛选的免疫基因LFC数据
+write.csv(dot_genes, file.path(RES_RZV, "Curated_ImmuneGenes_LFC.csv"))
+message("人工筛选免疫基因表已保存: ", file.path(RES_RZV, "Curated_ImmuneGenes_LFC.csv"))
+
 if (nrow(dot_genes) >= 5) {
   # 转为长格式
   dot_long <- data.frame()
