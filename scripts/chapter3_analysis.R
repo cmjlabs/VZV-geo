@@ -225,12 +225,20 @@ print(p)
 dev.off()
 message("火山图已保存: ", file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"))
 
-# --- A7. 打印Top差异基因 ---
-top_degs <- res_df[!is.na(res_df$pvalue), ]  # 排除pvalue=NA的基因
-top_degs <- top_degs[order(-abs(top_degs$log2FoldChange)), ]
-message("\n显著差异基因 Top 20 (p<", P_CUTOFF, ", |LFC|>", LFC_CUTOFF, "):")
-print(head(top_degs[top_degs$pvalue < P_CUTOFF & abs(top_degs$log2FoldChange) > LFC_CUTOFF,
-                    c("symbol", "log2FoldChange", "pvalue")], 20))
+# --- A7. 显著差异基因表 ---
+sig_degs <- res_df[!is.na(res_df$pvalue) & res_df$pvalue < P_CUTOFF &
+                    abs(res_df$log2FoldChange) > LFC_CUTOFF, ]
+sig_degs <- sig_degs[order(-abs(sig_degs$log2FoldChange)), ]
+
+message(sprintf("\n显著差异基因: %d 个 (p<%.2f, |LFC|>%.2f)", nrow(sig_degs), P_CUTOFF, LFC_CUTOFF))
+message("Top 20:")
+print(head(sig_degs[, c("symbol", "log2FoldChange", "pvalue")], 20))
+
+# 保存显著DEG表 (含baseMean、LFC、p值等完整信息)
+sig_cols <- c("symbol", "gene_id", "baseMean", "log2FoldChange", "lfcSE", "stat", "pvalue", "padj")
+write.csv(sig_degs[, intersect(sig_cols, names(sig_degs))],
+          file.path(RES_HZ, "Significant_DEGs_table.csv"), row.names = FALSE)
+message("显著DEG表已保存: ", file.path(RES_HZ, "Significant_DEGs_table.csv"))
 
 # --- A8. 差异基因热图 ---
 # 取显著差异基因(p<0.05, |LFC|>1), 画样本×基因的Z-score热图
