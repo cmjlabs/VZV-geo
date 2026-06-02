@@ -634,6 +634,57 @@ if (length(multi_tp_genes) > 0) {
 }
 
 
+# --- B12. RZV Pseudobulk DEG热图 (Top200 |LFC|) ---
+message("绘制RZV DEG热图...")
+# 从所有时间点取|LFC|最大的200个基因
+all_lfc_abs <- rowMeans(abs(logfc_mat[, c("D14","D60","D74","D365")]))
+top200 <- names(sort(all_lfc_abs, decreasing = TRUE))[1:min(200, length(all_lfc_abs))]
+message(sprintf("  Top200 genes selected, mean|LFC| range: %.2f - %.2f",
+                min(all_lfc_abs[top200]), max(all_lfc_abs[top200])))
+
+# 从pseudobulk count中取这些基因的log2-CPM
+pb_cpm_sub <- cpm[intersect(top200, rownames(cpm)), , drop = FALSE]
+if (nrow(pb_cpm_sub) >= 10) {
+  # 基因symbol映射
+  heat_ids <- gsub("\\..*", "", rownames(pb_cpm_sub))
+  heat_syms <- mapIds(org.Hs.eg.db, keys = heat_ids,
+                       column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+  rownames(pb_cpm_sub) <- ifelse(is.na(heat_syms) | heat_syms == "",
+                                  rownames(pb_cpm_sub), heat_syms)
+
+  # 按时间点排序样本列
+  tp_order <- order(pb_meta$timepoint)
+  pb_cpm_sub <- pb_cpm_sub[, tp_order]
+
+  # 行Z-score
+  mat_z <- t(scale(t(pb_cpm_sub)))
+
+  # 列注释
+  ann_col <- data.frame(
+    Timepoint = pb_meta$timepoint[tp_order],
+    row.names = colnames(pb_cpm_sub))
+  ann_colors <- list(Timepoint = c(
+    D0 = "#1B9E77", D14 = "#D95F02", D60 = "#7570B3",
+    D74 = "#E7298A", D365 = "#66A61E"))
+
+  pdf(file.path(FIG_DIR, "FigB_Heatmap_Top200_DEGs.pdf"), width = 10, height = 14)
+  pheatmap(mat_z,
+           scale = "none",
+           cluster_rows = TRUE, cluster_cols = FALSE,
+           show_rownames = (nrow(mat_z) <= 100),
+           show_colnames = FALSE,
+           annotation_col = ann_col,
+           annotation_colors = ann_colors,
+           color = colorRampPalette(rev(brewer.pal(11, "RdBu")))(100),
+           main = paste0("RZV CD4+ T Cell Response: Top ", nrow(mat_z),
+                        " DEGs by Mean |LFC|"),
+           fontsize = 8,
+           border_color = NA)
+  dev.off()
+  message("RZV热图已保存: FigB_Heatmap_Top200_DEGs.pdf")
+}
+
+
 # #############################################################################
 #                                                                             #
 #   PART C: 提取第三章关键基因数据                                             #
