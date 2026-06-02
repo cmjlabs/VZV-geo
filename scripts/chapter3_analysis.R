@@ -486,13 +486,21 @@ if (nrow(deg_mat) >= 5) {
   message("DEG太少, 跳过Upset图")
 }
 
-# --- B9. 免疫关键基因点阵图 ---
-message("绘制免疫关键基因点阵图...")
-immune_genes <- c("ZEB2", "CTLA4", "ICOS", "HAVCR2", "TIGIT", "PDCD1",
-                  "CD38", "GZMA", "GNLY", "PRF1", "IRF4", "TBX21",
-                  "CCR7", "IL7R", "TCF7", "CXCR5", "BCL6", "TOX",
-                  "ISG15", "MX1", "RSAD2", "STAT1")
-# 从logfc_mat提取这些基因的数据
+# --- B9. 免疫关键基因点阵图 (按功能分类 + 括号标注) ---
+message("绘制免疫关键基因点阵图(按分类)...")
+# 基因按功能分类, 按类别排序
+gene_categories <- list(
+  "Differentiation"      = c("ZEB2", "IRF4", "TBX21"),
+  "Co-stim/Checkpoint"   = c("ICOS", "CTLA4", "TIGIT", "PDCD1", "HAVCR2"),
+  "Cytotoxicity"         = c("GZMA", "GNLY", "PRF1"),
+  "Activation"           = c("CD38", "TOX"),
+  "Memory/Naive"         = c("CCR7", "IL7R", "TCF7"),
+  "Tfh"                  = c("CXCR5", "BCL6"),
+  "Type I IFN (control)" = c("ISG15", "MX1", "RSAD2", "STAT1")
+)
+immune_genes <- unlist(gene_categories)
+
+# 从logfc_mat提取
 logfc_all <- as.data.frame(logfc_mat)
 logfc_all$ensembl_clean <- gsub("\\..*", "", rownames(logfc_all))
 logfc_all$symbol <- mapIds(org.Hs.eg.db, keys = logfc_all$ensembl_clean,
@@ -500,36 +508,48 @@ logfc_all$symbol <- mapIds(org.Hs.eg.db, keys = logfc_all$ensembl_clean,
 dot_genes <- logfc_all[logfc_all$symbol %in% immune_genes, ]
 dot_genes <- dot_genes[!duplicated(dot_genes$symbol), ]
 rownames(dot_genes) <- dot_genes$symbol
-dot_genes <- dot_genes[intersect(immune_genes, rownames(dot_genes)),
-                        c("D14", "D60", "D74", "D365")]
+dot_genes <- dot_genes[match(immune_genes, rownames(dot_genes)), ]  # 保持分类顺序
+dot_genes <- dot_genes[!is.na(rownames(dot_genes)), c("D14", "D60", "D74", "D365")]
 
-# 导出人工筛选的免疫基因LFC数据
-write.csv(dot_genes, file.path(RES_RZV, "Curated_ImmuneGenes_LFC.csv"))
-message("人工筛选免疫基因表已保存: ", file.path(RES_RZV, "Curated_ImmuneGenes_LFC.csv"))
+# 构建基因→类别映射
+gene2cat <- setNames(rep(names(gene_categories), lengths(gene_categories)), immune_genes)
+
+# 导出(含类别)
+dot_export <- as.data.frame(dot_genes)
+dot_export$category <- gene2cat[rownames(dot_export)]
+dot_export <- dot_export[, c("category", "D14", "D60", "D74", "D365")]
+write.csv(dot_export, file.path(RES_RZV, "Curated_ImmuneGenes_LFC.csv"))
 
 if (nrow(dot_genes) >= 5) {
-  # 转为长格式
+  # 长格式 + 添加类别列
   dot_long <- data.frame()
   for (g in rownames(dot_genes)) {
     for (tp in colnames(dot_genes)) {
       dot_long <- rbind(dot_long, data.frame(
-        gene = g, timepoint = tp, LFC = dot_genes[g, tp]))
+        gene = g, timepoint = tp, LFC = dot_genes[g, tp],
+        category = gene2cat[[g]], stringsAsFactors = FALSE))
     }
   }
   dot_long$timepoint <- factor(dot_long$timepoint, levels = c("D14", "D60", "D74", "D365"))
+  dot_long$gene <- factor(dot_long$gene, levels = rev(immune_genes))
+  dot_long$category <- factor(dot_long$category, levels = names(gene_categories))
 
-  pdf(file.path(FIG_DIR, "FigB_ImmuneGenes_dotplot.pdf"), width = 10, height = 7)
+  pdf(file.path(FIG_DIR, "FigB_ImmuneGenes_dotplot.pdf"), width = 14, height = 8)
   p <- ggplot(dot_long, aes(x = timepoint, y = gene, size = abs(LFC), color = LFC)) +
     geom_point() +
     scale_color_gradient2(low = "#377EB8", mid = "white", high = "#E41A1C", midpoint = 0) +
-    scale_size(range = c(1, 8)) +
-    labs(x = "Timepoint", y = "", title = "Key Immune Genes Across RZV Vaccination Timeline",
+    scale_size(range = c(1, 7)) +
+    facet_wrap(~ category, scales = "free_y", nrow = 1, strip.position = "top") +
+    labs(x = "Timepoint", y = "",
+         title = "Key Immune Genes During RZV Vaccination (Curated, by Category)",
          size = "|LFC|", color = "LFC") +
     theme_minimal(base_size = 12) +
-    theme(axis.text.y = element_text(face = "bold"))
+    theme(axis.text.y = element_text(size = 9),
+          strip.text = element_text(size = 9, face = "bold"),
+          panel.spacing = unit(1, "lines"))
   print(p)
   dev.off()
-  message("免疫基因点阵图已保存: FigB_ImmuneGenes_dotplot.pdf")
+  message("免疫基因点阵图(分面)已保存: FigB_ImmuneGenes_dotplot.pdf")
 }
 
 # --- B10. 数据驱动基因点阵图 (显著≥2个时间点, Top25 |LFC|) ---
