@@ -528,6 +528,61 @@ if (nrow(dot_genes) >= 5) {
   message("免疫基因点阵图已保存: FigB_ImmuneGenes_dotplot.pdf")
 }
 
+# --- B10. 数据驱动基因点阵图 (显著≥2个时间点, Top25 |LFC|) ---
+message("绘制数据驱动基因点阵图...")
+# 筛选至少在2个时间点显著(FDR<0.05, |LFC|>阈值)的基因
+deg_list <- lapply(de_all, function(x) {
+  x$gene_id[x$adj.P.Val < 0.05 & abs(x$logFC) > LFC_CUTOFF]
+})
+deg_freq <- table(unlist(deg_list))
+multi_tp_genes <- names(deg_freq[deg_freq >= 2])  # ≥2个时间点
+message(sprintf("  至少2个时间点显著的基因: %d 个", length(multi_tp_genes)))
+
+# 取其中|LFC|最大的Top25
+if (length(multi_tp_genes) > 0) {
+  max_lfc <- apply(logfc_mat[intersect(multi_tp_genes, rownames(logfc_mat)), , drop = FALSE], 1,
+                   function(x) max(abs(x), na.rm = TRUE))
+  top25_ids <- names(sort(max_lfc, decreasing = TRUE))[1:min(25, length(max_lfc))]
+
+  # 映射symbol
+  top25_clean <- gsub("\\..*", "", top25_ids)
+  top25_sym <- mapIds(org.Hs.eg.db, keys = top25_clean,
+                       column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+  top25_labels <- ifelse(is.na(top25_sym), top25_ids, top25_sym)
+
+  # 提取这25个基因在4个时间点的LFC
+  dd_rows <- logfc_mat[top25_ids, c("D14", "D60", "D74", "D365"), drop = FALSE]
+  rownames(dd_rows) <- top25_labels
+
+  dd_long <- data.frame()
+  for (i in seq_len(nrow(dd_rows))) {
+    for (tp in colnames(dd_rows)) {
+      dd_long <- rbind(dd_long, data.frame(
+        gene = rownames(dd_rows)[i],
+        timepoint = tp,
+        LFC = dd_rows[i, tp],
+        n_sig = as.integer(deg_freq[top25_ids[i]])))
+    }
+  }
+  dd_long$timepoint <- factor(dd_long$timepoint, levels = c("D14", "D60", "D74", "D365"))
+  dd_long$gene <- factor(dd_long$gene, levels = rev(rownames(dd_rows)))
+
+  pdf(file.path(FIG_DIR, "FigB_DataDriven_dotplot.pdf"), width = 10, height = 8)
+  p <- ggplot(dd_long, aes(x = timepoint, y = gene, size = abs(LFC), color = LFC)) +
+    geom_point() +
+    scale_color_gradient2(low = "#377EB8", mid = "white", high = "#E41A1C", midpoint = 0) +
+    scale_size(range = c(1, 9)) +
+    labs(x = "Timepoint", y = "",
+         title = paste0("Top ", nrow(dd_rows), " DEGs (Sig in >=2 Timepoints, by Max |LFC|)"),
+         subtitle = paste0("FDR<0.05, |LFC|>", LFC_CUTOFF),
+         size = "|LFC|", color = "LFC") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.y = element_text(size = 9))
+  print(p)
+  dev.off()
+  message("数据驱动点阵图已保存: FigB_DataDriven_dotplot.pdf")
+}
+
 
 # #############################################################################
 #                                                                             #
