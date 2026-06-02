@@ -158,9 +158,10 @@ write.csv(res_df, file.path(RES_HZ, "DE_HZ_acute_vs_convalescent.csv"),
           row.names = FALSE)
 
 # 统计显著差异基因数量 (基于已过滤symbol的基因)
-n_up   <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange > 0, na.rm = TRUE)
-n_down <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange < 0, na.rm = TRUE)
-message(sprintf("显著差异基因 (FDR<%.2f): %d 上调, %d 下调 (已过滤无Symbol)", FDR_CUTOFF, n_up, n_down))
+n_up   <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange > LFC_CUTOFF, na.rm = TRUE)
+n_down <- sum(res_df$padj < FDR_CUTOFF & res_df$log2FoldChange < -LFC_CUTOFF, na.rm = TRUE)
+message(sprintf("显著差异基因 (FDR<%.2f, |LFC|>%.2f): %d 上调, %d 下调 (已过滤无Symbol)",
+                FDR_CUTOFF, LFC_CUTOFF, n_up, n_down))
 
 # --- A5. PCA主成分分析 ---
 # 用vst(variance stabilizing transformation)标准化后做PCA
