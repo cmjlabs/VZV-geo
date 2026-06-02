@@ -226,9 +226,11 @@ dev.off()
 message("火山图已保存: ", file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"))
 
 # --- A7. 打印Top差异基因 ---
-top_degs <- res_df[order(-abs(res_df$log2FoldChange)), ]
-message("\n按|log2FC|排序的Top 20差异基因:")
-print(head(top_degs[, c("gene_id", "symbol", "log2FoldChange", "padj")], 20))
+top_degs <- res_df[!is.na(res_df$padj), ]  # 排除padj=NA的基因
+top_degs <- top_degs[order(-abs(top_degs$log2FoldChange)), ]
+message("\n显著差异基因 Top 20 (FDR<", FDR_CUTOFF, ", |LFC|>", LFC_CUTOFF, "):")
+print(head(top_degs[top_degs$padj < FDR_CUTOFF & abs(top_degs$log2FoldChange) > LFC_CUTOFF,
+                    c("symbol", "log2FoldChange", "padj")], 20))
 
 # --- A8. 差异基因热图 ---
 # 取显著差异基因(FDR<0.05, |LFC|>1), 画样本×基因的Z-score热图
