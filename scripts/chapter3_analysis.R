@@ -634,54 +634,52 @@ if (length(multi_tp_genes) > 0) {
 }
 
 
-# --- B12. RZV Pseudobulk DEG热图 (Top200 |LFC|) ---
+# --- B12. RZV Pseudobulk DEG热图 ---
+# 筛选标准: 至少1个时间点显著(FDR<0.05, |LFC|>阈值), 取Top200按LFC方差
 message("绘制RZV DEG热图...")
-# 从所有时间点取|LFC|最大的200个基因
-all_lfc_abs <- rowMeans(abs(logfc_mat[, c("D14","D60","D74","D365")]))
-top200 <- names(sort(all_lfc_abs, decreasing = TRUE))[1:min(200, length(all_lfc_abs))]
-message(sprintf("  Top200 genes selected, mean|LFC| range: %.2f - %.2f",
-                min(all_lfc_abs[top200]), max(all_lfc_abs[top200])))
+sig_genes <- unique(unlist(lapply(de_all, function(x) {
+  rownames(x)[x$adj.P.Val < 0.05 & abs(x$logFC) > LFC_CUTOFF & !is.na(x$adj.P.Val)]
+})))
+message(sprintf("  至少1个时间点显著的基因: %d (FDR<0.05, |LFC|>%.2f)", length(sig_genes), LFC_CUTOFF))
 
-# 从pseudobulk count中取这些基因的log2-CPM
-pb_cpm_sub <- cpm[intersect(top200, rownames(cpm)), , drop = FALSE]
-if (nrow(pb_cpm_sub) >= 10) {
+if (length(sig_genes) > 2) {
+  # 取Top200: 按跨时间点LFC方差排序
+  lfc_sig <- logfc_mat[intersect(sig_genes, rownames(logfc_mat)),
+                        c("D14","D60","D74","D365"), drop = FALSE]
+  var_rank <- order(-apply(lfc_sig, 1, var, na.rm = TRUE))
+  top_genes <- rownames(lfc_sig)[var_rank[1:min(200, length(var_rank))]]
+  message(sprintf("  取Top %d 基因 (按LFC方差)", length(top_genes)))
+
+  # 按时间点算均值CPM (与旧版一致)
+  tp_levels <- c("D0","D14","D60","D74","D365")
+  expr_means <- matrix(NA, nrow = length(top_genes), ncol = length(tp_levels),
+                        dimnames = list(top_genes, tp_levels))
+  for (tp in tp_levels) {
+    samples <- colnames(pb_counts)[pb_meta$timepoint == tp]
+    expr_means[top_genes, tp] <- rowMeans(cpm[top_genes, samples, drop = FALSE])
+  }
+
   # 基因symbol映射
-  heat_ids <- gsub("\\..*", "", rownames(pb_cpm_sub))
+  heat_ids <- gsub("\\..*", "", rownames(expr_means))
   heat_syms <- mapIds(org.Hs.eg.db, keys = heat_ids,
                        column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
-  rownames(pb_cpm_sub) <- ifelse(is.na(heat_syms) | heat_syms == "",
-                                  rownames(pb_cpm_sub), heat_syms)
+  rownames(expr_means) <- ifelse(is.na(heat_syms) | heat_syms == "",
+                                  rownames(expr_means), heat_syms)
 
-  # 按时间点排序样本列
-  tp_order <- order(pb_meta$timepoint)
-  pb_cpm_sub <- pb_cpm_sub[, tp_order]
+  # Z-score标准化
+  mat_z <- t(scale(t(expr_means)))
 
-  # 行Z-score
-  mat_z <- t(scale(t(pb_cpm_sub)))
-
-  # 列注释
-  ann_col <- data.frame(
-    Timepoint = pb_meta$timepoint[tp_order],
-    row.names = colnames(pb_cpm_sub))
-  ann_colors <- list(Timepoint = c(
-    D0 = "#1B9E77", D14 = "#D95F02", D60 = "#7570B3",
-    D74 = "#E7298A", D365 = "#66A61E"))
-
-  pdf(file.path(FIG_DIR, "FigB_Heatmap_Top200_DEGs.pdf"), width = 10, height = 14)
+  pdf(file.path(FIG_DIR, "FigB_Heatmap_DEGs_timepoints.pdf"), width = 8, height = 14)
   pheatmap(mat_z,
-           scale = "none",
            cluster_rows = TRUE, cluster_cols = FALSE,
-           show_rownames = (nrow(mat_z) <= 100),
-           show_colnames = FALSE,
-           annotation_col = ann_col,
-           annotation_colors = ann_colors,
+           show_rownames = (nrow(mat_z) <= 80),
            color = colorRampPalette(rev(brewer.pal(11, "RdBu")))(100),
-           main = paste0("RZV CD4+ T Cell Response: Top ", nrow(mat_z),
-                        " DEGs by Mean |LFC|"),
+           main = paste0("RZV CD4+ T Cell Response: ", nrow(mat_z),
+                        " DEGs (FDR<0.05, |LFC|>", LFC_CUTOFF, " in >=1 timepoint)"),
            fontsize = 8,
            border_color = NA)
   dev.off()
-  message("RZV热图已保存: FigB_Heatmap_Top200_DEGs.pdf")
+  message("RZV热图已保存: FigB_Heatmap_DEGs_timepoints.pdf")
 }
 
 
