@@ -770,20 +770,69 @@ for (tp in names(de_all)) {
 # #############################################################################
 
 message("\n", paste(rep("=", 70), collapse = ""))
-message("PART D: HRA008316 T细胞 ↔ RZV T细胞 方向一致性分析")
+message("PART D: HRA008316 CD4+ Naive T细胞 ↔ RZV gE-CD4+ T细胞 方向一致性分析")
 message(paste(rep("=", 70), collapse = ""))
 
 # --- D1. 读入HRA008316 T细胞DEG数据 ---
 library(readxl)
 hra_file <- file.path(PROJ_ROOT, "data", "42003_2024_7289_MOESM4_ESM(1).xlsx")
 if (file.exists(hra_file)) {
-  hra_raw <- read_excel(hra_file, sheet = "Fig_5f.xls")
-  message(sprintf("HRA008316 T细胞DEGs: %d 基因", nrow(hra_raw)))
+  # 读入 Fig_4b(1): 完整表达矩阵, 提取 CD4NaiveT 数据
+  hra_expr <- read_excel(hra_file, sheet = "Fig_4b (1).xls")
+  # 第一列是基因symbol
+  gene_col <- names(hra_expr)[1]
+  names(hra_expr)[1] <- "gene_symbol"
+
+  # 提取 CD4NaiveT 列: HA(健康) + HN(HZ患者) + nHN(恢复)
+  cd4_cols_ha  <- grep("CD4NaiveT_HA", names(hra_expr), value = TRUE)
+  cd4_cols_hn  <- grep("CD4NaiveT_HN", names(hra_expr), value = TRUE)
+  cd4_cols_nhn <- grep("CD4NaiveT_nHN", names(hra_expr), value = TRUE)
+
+  message(sprintf("CD4NaiveT: HA=%d, HN(HZ)=%d, nHN(Recov)=%d 样本",
+                  length(cd4_cols_ha), length(cd4_cols_hn), length(cd4_cols_nhn)))
+
+  # 计算HN vs HA的log2FC (表达值为标准化值, 用均值比)
+  cd4_expr <- as.data.frame(hra_expr[, c("gene_symbol", cd4_cols_ha, cd4_cols_hn)])
+  cd4_expr$HA_mean <- rowMeans(as.matrix(hra_expr[, cd4_cols_ha]), na.rm = TRUE)
+  cd4_expr$HN_mean <- rowMeans(as.matrix(hra_expr[, cd4_cols_hn]), na.rm = TRUE)
+  # log2FC = log2(HN/HA), 加pseudocount避免除零
+  cd4_expr$avg_logFC <- log2((cd4_expr$HN_mean + 0.1) / (cd4_expr$HA_mean + 0.1))
+
+  # 简单t检验 (3 vs 3, 统计效力有限但可给出相对排序)
+  cd4_expr$p_value <- apply(cd4_expr, 1, function(row) {
+    ha_vals <- as.numeric(row[cd4_cols_ha])
+    hn_vals <- as.numeric(row[cd4_cols_hn])
+    if (sd(ha_vals) == 0 && sd(hn_vals) == 0) return(1)
+    tryCatch(t.test(hn_vals, ha_vals)$p.value, error = function(e) 1)
+  })
+  cd4_expr$p_value <- as.numeric(cd4_expr$p_value)
+
+  # 构建类似Fig_5f格式的数据框
+  hra_raw <- data.frame(
+    gene_id   = cd4_expr$gene_symbol,
+    avg_logFC = cd4_expr$avg_logFC,
+    p_val_adj = p.adjust(cd4_expr$p_value, method = "BH"),
+    stringsAsFactors = FALSE
+  )
+  hra_raw <- hra_raw[!is.na(hra_raw$avg_logFC) & is.finite(hra_raw$avg_logFC), ]
+  message(sprintf("CD4NaiveT 基因: %d (表达矩阵提取, HN vs HA)", nrow(hra_raw)))
 
   # 标记显著基因
   hra_raw$sig <- hra_raw$p_val_adj < 0.05 & abs(hra_raw$avg_logFC) > 0.5
   n_hra_sig <- sum(hra_raw$sig, na.rm = TRUE)
-  message(sprintf("  显著DEGs (padj<0.05, |LFC|>0.5): %d", n_hra_sig))
+  message(sprintf("  显著基因 (padj<0.05, |LFC|>0.5): %d", n_hra_sig))
+
+  # Top genes
+  message("  Top Up in CD4NaiveT (HZ vs Healthy):")
+  top_up <- head(hra_raw[hra_raw$sig & hra_raw$avg_logFC > 0, ][order(-hra_raw$avg_logFC), ], 10)
+  for (i in seq_len(nrow(top_up))) {
+    message(sprintf("    %-15s LFC=%+.3f padj=%.1e", top_up$gene_id[i], top_up$avg_logFC[i], top_up$p_val_adj[i]))
+  }
+  message("  Top Down in CD4NaiveT (HZ vs Healthy):")
+  top_down <- head(hra_raw[hra_raw$sig & hra_raw$avg_logFC < 0, ][order(hra_raw$avg_logFC), ], 10)
+  for (i in seq_len(nrow(top_down))) {
+    message(sprintf("    %-15s LFC=%+.3f padj=%.1e", top_down$gene_id[i], top_down$avg_logFC[i], top_down$p_val_adj[i]))
+  }
 
   # --- D2. 构建RZV LFC查找表 ---
   # 从de_all提取symbol→LFC映射 (使用org.Hs.eg.db)
@@ -892,10 +941,10 @@ if (file.exists(hra_file)) {
                                    "Concordant Down" = "#377EB8",
                                    "Opposite Direction" = "#FF7F00")) +
     xlim(-xmax, xmax) + ylim(-ymax, ymax) +
-    labs(x = "HRA008316 T cell LFC (HP vs HA)",
+    labs(x = "HRA008316 CD4+ Naive T cell LFC (HZ vs Healthy)",
          y = "RZV gE-CD4+ T cell LFC (D14 vs D0)",
-         title = "T Cell Gene Direction Concordance",
-         subtitle = paste0("HZ Disease vs RZV Vaccine | ",
+         title = "CD4+ T Cell Gene Direction Concordance",
+         subtitle = paste0("CD4+ Naive (HZ disease) vs gE-CD4+ (RZV vaccine) | ",
                            n_conc, " concordant (", round(100*n_conc/nrow(plot_data)), "%), ",
                            n_opp, " opposite (", round(100*n_opp/nrow(plot_data)), "%)"),
          color = "Direction") +
@@ -928,7 +977,7 @@ if (file.exists(hra_file)) {
                                   "Opposite (HZ Up, RZV Down)" = "#FF7F00",
                                   "Opposite (HZ Down, RZV Up)" = "#984EA3")) +
     labs(x = "", y = "Number of Genes",
-         title = paste0("Direction Concordance: HZ T Cells vs RZV T Cells (n=", nrow(comp_sig), ")")) +
+         title = paste0("Direction Concordance: CD4+ Naive (HZ) vs gE-CD4+ (RZV) (n=", nrow(comp_sig), ")")) +
     theme_minimal(base_size = 12) +
     theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 9),
           legend.position = "none")
@@ -965,7 +1014,7 @@ if (file.exists(hra_file)) {
                                    "RZV T cells (D14 vs D0)" = "#377EB8")) +
     scale_size(range = c(2, 6)) +
     labs(x = "log2 Fold Change", y = "",
-         title = paste0("Top 50 Genes by |LFC|: HZ vs RZV T Cell Response"),
+         title = paste0("Top 50 Genes by |LFC|: CD4+ Naive (HZ) vs gE-CD4+ (RZV)"),
          subtitle = paste0("From ", nrow(comp_plot), " shared genes | Red = HZ, Blue = RZV"),
          color = "Dataset", size = "|LFC|") +
     theme_minimal(base_size = 11) +
