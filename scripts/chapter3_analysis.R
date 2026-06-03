@@ -791,31 +791,54 @@ if (file.exists(hra_file)) {
   message(sprintf("CD4NaiveT: HA=%d, HN(HZ)=%d, nHN(Recov)=%d 样本",
                   length(cd4_cols_ha), length(cd4_cols_hn), length(cd4_cols_nhn)))
 
-  # 计算HN vs HA的log2FC (表达值为标准化值, 用均值比)
-  cd4_expr <- as.data.frame(hra_expr[, c("gene_symbol", cd4_cols_ha, cd4_cols_hn)])
-  cd4_expr$HA_mean <- rowMeans(as.matrix(hra_expr[, cd4_cols_ha]), na.rm = TRUE)
-  cd4_expr$HN_mean <- rowMeans(as.matrix(hra_expr[, cd4_cols_hn]), na.rm = TRUE)
-  # log2FC = log2(HN/HA), 加pseudocount避免除零
-  cd4_expr$avg_logFC <- log2((cd4_expr$HN_mean + 0.1) / (cd4_expr$HA_mean + 0.1))
+  # ---- 提取 All-T 列 (所有T细胞亚群): CD4NaiveT + CD8 + gdT + Treg + Prolif ----
+  all_t_patterns <- c("CD4NaiveT","CD8NaiveT","CD8Teff","CD8Tem","GDTCells",
+                       "ProliferatingT","Treg")
+  all_t_cols <- unlist(lapply(all_t_patterns, function(p) grep(p, names(hra_expr), value=TRUE)))
+  all_t_cols_ha <- grep("_HA", all_t_cols, value=TRUE)
+  all_t_cols_hn <- grep("_HN[^n]", all_t_cols, value=TRUE)  # HN but not nHN
+  message(sprintf("All-T cells: HA=%d, HN=%d 列 (7 subtypes pooled)",
+                  length(all_t_cols_ha), length(all_t_cols_hn)))
 
-  # 简单t检验 (3 vs 3, 统计效力有限但可给出相对排序)
-  cd4_expr$p_value <- apply(cd4_expr, 1, function(row) {
-    ha_vals <- as.numeric(row[cd4_cols_ha])
-    hn_vals <- as.numeric(row[cd4_cols_hn])
-    if (sd(ha_vals) == 0 && sd(hn_vals) == 0) return(1)
-    tryCatch(t.test(hn_vals, ha_vals)$p.value, error = function(e) 1)
-  })
-  cd4_expr$p_value <- as.numeric(cd4_expr$p_value)
+  # ---- 计算LFC的辅助函数 ----
+  compute_lfc <- function(expr_mat, ha_cols, hn_cols, gene_col="gene_symbol") {
+    ha_mean <- rowMeans(as.matrix(expr_mat[, ha_cols, drop=FALSE]), na.rm=TRUE)
+    hn_mean <- rowMeans(as.matrix(expr_mat[, hn_cols, drop=FALSE]), na.rm=TRUE)
+    lfc <- log2((hn_mean + 0.1) / (ha_mean + 0.1))
+    p_val <- apply(expr_mat, 1, function(row) {
+      ha_vals <- as.numeric(row[ha_cols])
+      hn_vals <- as.numeric(row[hn_cols])
+      if (sd(ha_vals)==0 && sd(hn_vals)==0) return(1)
+      tryCatch(t.test(hn_vals, ha_vals)$p.value, error=function(e) 1)
+    })
+    data.frame(
+      gene_id   = expr_mat[[gene_col]],
+      avg_logFC = lfc,
+      p_val_adj = p.adjust(as.numeric(p_val), method="BH"),
+      stringsAsFactors = FALSE
+    )
+  }
 
-  # 构建类似Fig_5f格式的数据框
-  hra_raw <- data.frame(
-    gene_id   = cd4_expr$gene_symbol,
-    avg_logFC = cd4_expr$avg_logFC,
-    p_val_adj = p.adjust(cd4_expr$p_value, method = "BH"),
-    stringsAsFactors = FALSE
-  )
-  hra_raw <- hra_raw[!is.na(hra_raw$avg_logFC) & is.finite(hra_raw$avg_logFC), ]
-  message(sprintf("CD4NaiveT 基因: %d (表达矩阵提取, HN vs HA)", nrow(hra_raw)))
+  # ---- 计算两个群体的LFC ----
+  # 群体1: CD4NaiveT
+  cd4_lfc <- compute_lfc(
+    as.data.frame(hra_expr[, c("gene_symbol", cd4_cols_ha, cd4_cols_hn)]),
+    cd4_cols_ha, cd4_cols_hn)
+  cd4_lfc <- cd4_lfc[!is.na(cd4_lfc$avg_logFC) & is.finite(cd4_lfc$avg_logFC), ]
+  cd4_lfc$sig <- cd4_lfc$p_val_adj < 0.05 & abs(cd4_lfc$avg_logFC) > 0.5
+  message(sprintf("CD4NaiveT: %d genes, %d sig", nrow(cd4_lfc), sum(cd4_lfc$sig)))
+
+  # 群体2: All-T (pooled)
+  allt_lfc <- compute_lfc(
+    as.data.frame(hra_expr[, c("gene_symbol", all_t_cols_ha, all_t_cols_hn)]),
+    all_t_cols_ha, all_t_cols_hn)
+  allt_lfc <- allt_lfc[!is.na(allt_lfc$avg_logFC) & is.finite(allt_lfc$avg_logFC), ]
+  allt_lfc$sig <- allt_lfc$p_val_adj < 0.05 & abs(allt_lfc$avg_logFC) > 0.5
+  message(sprintf("All-T: %d genes, %d sig", nrow(allt_lfc), sum(allt_lfc$sig)))
+
+  # ---- 使用 CD4NaiveT 作为主要分析 (All-T在旁边作为对照) ----
+  hra_raw <- cd4_lfc
+  message("\n主分析: CD4NaiveT | 对照: All-T (pooled T subsets)")
 
   # 标记显著基因
   hra_raw$sig <- hra_raw$p_val_adj < 0.05 & abs(hra_raw$avg_logFC) > 0.5
@@ -1023,6 +1046,55 @@ if (file.exists(hra_file)) {
   print(p3)
   dev.off()
   message("  棒棒糖图已保存: FigD_KeyGenes_Lollipop.pdf (全部共享基因Top50)")
+
+  # --- D9. All-T对照分析 (pooled T subsets, 用于验证CD4NaiveT结论的稳健性) ---
+  message("\n--- D9: All-T 对照分析 (pooled 7 T cell subtypes) ---")
+
+  # 复用CD4NaiveT相同的RZV匹配逻辑
+  allt_common <- intersect(allt_lfc$gene_id, rzv_lookup$symbol)
+  message(sprintf("All-T共同基因: %d", length(allt_common)))
+
+  allt_comp <- data.frame(gene = allt_common, stringsAsFactors = FALSE)
+  allt_comp$HRA_LFC  <- allt_lfc$avg_logFC[match(allt_common, allt_lfc$gene_id)]
+  allt_comp$HRA_sig  <- allt_lfc$sig[match(allt_common, allt_lfc$gene_id)]
+  rzv_m <- match(allt_common, rzv_lookup$symbol)
+  allt_comp$RZV_D14  <- rzv_lookup$LFC_D14[rzv_m]
+  allt_comp$RZV_D74  <- rzv_lookup$LFC_D74[rzv_m]
+  allt_comp$RZV_D365 <- rzv_lookup$LFC_D365[rzv_m]
+
+  allt_comp$HRA_dir <- ifelse(allt_comp$HRA_LFC > 0, 1, -1)
+  allt_comp$RZV_dir <- ifelse(allt_comp$RZV_D14 > 0, 1, -1)
+  allt_comp$any_sig <- allt_comp$HRA_sig | (abs(allt_comp$RZV_D14) > LFC_CUTOFF)
+  allt_comp <- allt_comp[allt_comp$any_sig & !is.na(allt_comp$RZV_D14), ]
+
+  allt_comp$direction <- ifelse(
+    allt_comp$HRA_dir == allt_comp$RZV_dir,
+    ifelse(allt_comp$HRA_dir > 0, "Concordant Up", "Concordant Down"),
+    ifelse(allt_comp$HRA_dir > 0, "Opposite (HZ Up, RZV Down)", "Opposite (HZ Down, RZV Up)")
+  )
+
+  n_allt_conc <- sum(grepl("Concordant", allt_comp$direction))
+  n_allt_opp  <- sum(grepl("Opposite", allt_comp$direction))
+  message(sprintf("All-T方向一致性: %d 一致 (%.0f%%), %d 相反 (%.0f%%)",
+                  n_allt_conc, 100*n_allt_conc/nrow(allt_comp),
+                  n_allt_opp,  100*n_allt_opp/nrow(allt_comp)))
+
+  write.csv(allt_comp[order(allt_comp$direction), ],
+            file.path(RES_RZV, "HRA_AllT_vs_RZV_ComparisonTable.csv"),
+            row.names = FALSE)
+  message("All-T对照表已保存: HRA_AllT_vs_RZV_ComparisonTable.csv")
+
+  # 关键基因在CD4NaiveT vs All-T中的LFC对比
+  message("\n关键基因 CD4NaiveT vs All-T LFC 对比:")
+  for (g in key_immune) {
+    cd4_val <- comp_sig$HRA_LFC[comp_sig$gene == g]
+    allt_val <- allt_comp$HRA_LFC[allt_comp$gene == g]
+    cd4_str <- if (length(cd4_val) > 0) sprintf("%+.3f", cd4_val[1]) else "N/A"
+    at_str  <- if (length(allt_val) > 0) sprintf("%+.3f", allt_val[1]) else "N/A"
+    if (cd4_str != "N/A" || at_str != "N/A") {
+      message(sprintf("  %-12s  CD4NaiveT=%s  All-T=%s", g, cd4_str, at_str))
+    }
+  }
 
 } else {
   message("HRA008316 补充数据文件未找到: ", hra_file)
