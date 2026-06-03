@@ -49,6 +49,7 @@ suppressPackageStartupMessages({
   library(RColorBrewer)  # 调色板
   library(ggrepel)       # 火山图基因标签防重叠
   library(UpSetR)        # DEG重叠Upset图
+  library(readxl)        # 读取Excel补充材料(HRA008316)
   library(clusterProfiler) # GO/KEGG富集分析
   library(org.Hs.eg.db)   # 基因ID映射(Ensembl→Symbol→Entrez)
   library(enrichplot)     # 富集结果可视化
@@ -760,6 +761,123 @@ for (tp in names(de_all)) {
 
 # #############################################################################
 #                                                                             #
+#   PART D: HRA008316 T细胞scRNA-seq → RZV T细胞方向一致性分析                #
+#   数据来源: Zheng et al. 2024, Commun Biol (Supplementary Data 1)           #
+#   比较: HZ患者T细胞(HP vs HA) ↔ RZV gE-CD4⁺ T细胞(D14 vs D0)               #
+#   核心问题: 同一基因在两个T细胞数据集中是否朝同一方向变化?                    #
+#                                                                             #
+# #############################################################################
+
+message("\n", paste(rep("=", 70), collapse = ""))
+message("PART D: HRA008316 T细胞 ↔ RZV T细胞 方向一致性分析")
+message(paste(rep("=", 70), collapse = ""))
+
+# --- D1. 读入HRA008316 T细胞DEG数据 ---
+library(readxl)
+hra_file <- file.path(PROJ_ROOT, "data", "42003_2024_7289_MOESM4_ESM(1).xlsx")
+if (file.exists(hra_file)) {
+  hra_raw <- read_excel(hra_file, sheet = "Fig_5f.xls")
+  message(sprintf("HRA008316 T细胞DEGs: %d 基因", nrow(hra_raw)))
+
+  # 标记显著基因
+  hra_raw$sig <- hra_raw$p_val_adj < 0.05 & abs(hra_raw$avg_logFC) > 0.5
+  n_hra_sig <- sum(hra_raw$sig, na.rm = TRUE)
+  message(sprintf("  显著DEGs (padj<0.05, |LFC|>0.5): %d", n_hra_sig))
+
+  # --- D2. 构建RZV LFC查找表 ---
+  # 从de_all提取symbol→LFC映射 (使用org.Hs.eg.db)
+  rzv_all_genes <- unique(unlist(lapply(de_all, function(x) x$gene_id)))
+  rzv_clean <- gsub("\\..*", "", rzv_all_genes)
+  rzv_sym <- mapIds(org.Hs.eg.db, keys = rzv_clean,
+                     column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+
+  # 构建 symbol → D14/D74/D365 LFC 的查找表
+  rzv_lookup <- data.frame(
+    ensembl = rzv_all_genes,
+    symbol = rzv_sym,
+    stringsAsFactors = FALSE
+  )
+  for (tp in names(de_all)) {
+    de <- de_all[[tp]]
+    rzv_lookup[[paste0("LFC_", tp)]] <- de$logFC[match(rzv_lookup$ensembl, de$gene_id)]
+  }
+  rzv_lookup <- rzv_lookup[!is.na(rzv_lookup$symbol) & rzv_lookup$symbol != "", ]
+  # 去重复symbol (取第一个)
+  rzv_lookup <- rzv_lookup[!duplicated(rzv_lookup$symbol), ]
+  message(sprintf("RZV基因symbol映射: %d 个", nrow(rzv_lookup)))
+
+  # --- D3. 交叉比对: HRA gene_id (即symbol) 匹配 RZV symbol ---
+  common_genes <- intersect(hra_raw$gene_id, rzv_lookup$symbol)
+  message(sprintf("两数据集共同基因: %d 个", length(common_genes)))
+
+  # 构建比对矩阵
+  comp_data <- data.frame(
+    gene = common_genes,
+    stringsAsFactors = FALSE
+  )
+  # HRA值
+  hra_match <- match(common_genes, hra_raw$gene_id)
+  comp_data$HRA_LFC    <- hra_raw$avg_logFC[hra_match]
+  comp_data$HRA_padj   <- hra_raw$p_val_adj[hra_match]
+  comp_data$HRA_sig    <- hra_raw$sig[hra_match]
+
+  # RZV值
+  rzv_match <- match(common_genes, rzv_lookup$symbol)
+  comp_data$RZV_D14  <- rzv_lookup$LFC_D14[rzv_match]
+  comp_data$RZV_D74  <- rzv_lookup$LFC_D74[rzv_match]
+  comp_data$RZV_D365 <- rzv_lookup$LFC_D365[rzv_match]
+
+  # --- D4. 方向一致性判定 ---
+  comp_data$HRA_dir <- ifelse(comp_data$HRA_LFC > 0, 1, -1)
+  comp_data$RZV_dir <- ifelse(comp_data$RZV_D14 > 0, 1, -1)
+
+  # 至少在一边显著
+  comp_data$any_sig <- comp_data$HRA_sig | (abs(comp_data$RZV_D14) > LFC_CUTOFF)
+  comp_sig <- comp_data[comp_data$any_sig & !is.na(comp_data$RZV_D14), ]
+
+  comp_sig$direction <- ifelse(
+    comp_sig$HRA_dir == comp_sig$RZV_dir,
+    ifelse(comp_sig$HRA_dir > 0, "Concordant Up", "Concordant Down"),
+    ifelse(comp_sig$HRA_dir > 0, "Opposite (HZ Up, RZV Down)", "Opposite (HZ Down, RZV Up)")
+  )
+
+  # 统计
+  n_conc <- sum(grepl("Concordant", comp_sig$direction))
+  n_opp  <- sum(grepl("Opposite", comp_sig$direction))
+  message(sprintf("方向一致性: %d 一致 (%.0f%%), %d 相反 (%.0f%%)",
+                  n_conc, 100*n_conc/nrow(comp_sig), n_opp, 100*n_opp/nrow(comp_sig)))
+
+  # 保存完整比对表
+  write.csv(comp_sig[order(comp_sig$direction), ],
+            file.path(RES_RZV, "HRA_vs_RZV_direction_concordance.csv"),
+            row.names = FALSE)
+  message("方向一致性表已保存")
+
+  # --- D5. 关键免疫基因方向表 ---
+  key_immune <- c("GZMA","TIGIT","GNLY","CD69","IL7R","TSC22D3",
+                  "NKG7","PRF1","ISG15","STAT1",
+                  "ZEB2","CTLA4","ICOS","HAVCR2","GATA3","TOX",
+                  "CXCL13","IL21","CCR7","CXCR5","BCL6","CD38","HLA-DRA","IRF4")
+  key_df <- comp_sig[comp_sig$gene %in% key_immune,
+                      c("gene","HRA_LFC","RZV_D14","RZV_D74","RZV_D365","direction")]
+  key_df <- key_df[order(key_df$direction, -abs(key_df$HRA_LFC)), ]
+  message("\n=== 关键免疫基因方向 ===")
+  for (i in seq_len(nrow(key_df))) {
+    message(sprintf("  %-12s %-30s HRA=%+.2f  RZV_D14=%+.1f  D365=%+.1f",
+                    key_df$gene[i], key_df$direction[i],
+                    key_df$HRA_LFC[i], key_df$RZV_D14[i], key_df$RZV_D365[i]))
+  }
+  write.csv(key_df, file.path(RES_RZV, "KeyImmune_DirectionConcordance.csv"),
+            row.names = FALSE)
+
+} else {
+  message("HRA008316 补充数据文件未找到: ", hra_file)
+  message("请从 https://pmc.ncbi.nlm.nih.gov/articles/PMC11618686/ 下载 Supplementary Data 1")
+}
+
+
+# #############################################################################
+#                                                                             #
 #   分析完成                                                                   #
 #                                                                             #
 # #############################################################################
@@ -772,4 +890,7 @@ message("  GSE249632 DE表:       ", file.path(RES_RZV, "DE_D[14,60,74,365]_vs_D
 message("  logFC合并矩阵:        ", file.path(RES_RZV, "logFC_matrix_all_timepoints.csv"))
 message("  PCA图:                ", file.path(FIG_DIR, "FigA_PCA_HZ.pdf"))
 message("  火山图:               ", file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"))
+message("  --- Part D: HRA008316 ---")
+message("  方向一致性表:           ", file.path(RES_RZV, "HRA_vs_RZV_direction_concordance.csv"))
+message("  关键免疫基因方向表:     ", file.path(RES_RZV, "KeyImmune_DirectionConcordance.csv"))
 message(paste(rep("=", 70), collapse = ""))
