@@ -1,0 +1,53 @@
+Gene,Function,HZ_LFC,HZ_p,HZ_Sig,RZV_D14,RZV_D74,RZV_D365,Pattern
+CD4,CD4 T cell identity,-0.09,4.1e-01,ns,0.9,1.3,0.4,Masked in HZ bulk
+CD3E,TCR complex,0.3,1.2e-03,**,-0.1,-0.3,-0.3,Stable in both
+CD3D,TCR complex,0.53,1.2e-03,**,-0.2,-0.2,-0.3,Stable in both
+CD3G,TCR complex,0.42,4.6e-03,**,-0.1,-0.1,-0.7,Stable in both
+CD2,T cell co-receptor,0.44,3.7e-04,***,0.1,-0.0,0.1,Stable in both
+CD28,Co-stimulation,0.11,3.4e-01,ns,0.4,0.2,-0.4,Stable in both
+LCK,TCR signaling,0.08,4.6e-01,ns,1.1,0.9,0.5,Masked in HZ bulk
+ZAP70,TCR signaling,0.06,6.1e-01,ns,0.4,0.5,0.1,Stable in both
+ITK,TCR signaling,0.01,9.0e-01,ns,0.1,0.1,-0.3,Stable in both
+TXK,TCR signaling,-0.11,4.1e-01,ns,-0.6,-1.1,-1.4,Masked in HZ bulk
+FYN,TCR signaling,-0.02,8.1e-01,ns,-0.1,0.0,-0.1,Stable in both
+ZEB2,Effector-memory differentiation,-0.11,3.4e-01,ns,3.2,3.6,3.0,Masked in HZ bulk
+TBX21,Th1 master regulator,0.24,1.3e-01,ns,-0.5,-0.5,-1.1,Stable in both
+GATA3,Th2 master regulator,0.14,1.3e-01,ns,1.0,1.0,0.9,Masked in HZ bulk
+RORC,Th17 master regulator,0.15,4.8e-01,ns,0.7,1.0,0.9,Masked in HZ bulk
+BCL6,Tfh / Germinal center,-0.13,3.9e-01,ns,0.7,1.1,-0.2,Masked in HZ bulk
+IRF4,Effector differentiation,0.4,1.6e-02,*,0.6,0.8,0.1,Masked in HZ bulk
+PRDM1,Blimp-1 / Terminal differentiation,-0.07,6.6e-01,ns,-0.1,-0.5,-0.7,Stable in both
+CTLA4,Immune checkpoint,0.28,2.6e-01,ns,1.5,1.6,1.0,Masked in HZ bulk
+ICOS,T cell co-stimulation,0.14,3.0e-01,ns,1.3,1.2,0.6,Masked in HZ bulk
+PDCD1,PD-1 / Exhaustion marker,1.52,1.5e-04,***,0.7,0.8,0.2,Changed in both
+TIGIT,Immune checkpoint,0.27,1.2e-01,ns,0.8,1.0,0.2,Masked in HZ bulk
+HAVCR2,TIM-3 / Effector memory,0.05,5.0e-01,ns,7.6,9.1,8.0,Masked in HZ bulk
+LAG3,Immune checkpoint,0.88,2.0e-03,**,1.5,1.6,0.0,Changed in both
+GZMA,Granzyme A / Cytotoxicity,1.07,3.3e-06,***,2.7,3.7,1.7,Changed in both
+PRF1,Perforin / Cytotoxicity,0.21,1.7e-01,ns,0.5,1.1,1.4,Stable in both
+GNLY,Granulysin / Cytotoxicity,0.17,3.4e-01,ns,-2.3,3.1,3.3,Masked in HZ bulk
+NKG7,Cytotoxicity,0.44,4.4e-02,*,-0.2,0.3,0.8,Stable in both
+CCR7,Lymph node homing / Naive,0.19,2.9e-01,ns,0.7,0.3,-0.1,Masked in HZ bulk
+IL7R,IL-7 receptor / Memory maintenance,0.18,2.3e-01,ns,-1.2,-0.7,-1.0,Masked in HZ bulk
+TCF7,TCF-1 / Stemness,0.13,3.0e-01,ns,0.5,0.2,-0.1,Stable in both
+LEF1,Wnt signaling / Stemness,-0.11,4.9e-01,ns,-0.5,-0.6,-1.3,Stable in both
+CXCR5,Tfh homing,-0.0,1.0e+00,ns,-0.9,-0.1,-1.8,Masked in HZ bulk
+CXCL13,Tfh chemokine,0.05,6.9e-01,ns,3.3,7.4,2.5,Masked in HZ bulk
+IL21,Tfh cytokine,0.64,1.2e-01,ns,1.8,2.3,1.9,Masked in HZ bulk
+SLAMF6,Tfh / GC interaction,-0.09,5.3e-01,ns,0.6,0.6,0.2,Masked in HZ bulk
+CD38,T cell activation,0.55,6.8e-05,***,6.6,3.3,0.1,Masked in HZ bulk
+HLA-DRA,MHC-II / Antigen presentation,0.47,1.9e-02,*,4.0,4.7,0.1,Masked in HZ bulk
+CD69,Early activation,0.2,3.1e-01,ns,-0.9,-0.7,-0.0,Masked in HZ bulk
+TNFRSF4,OX40 / Co-stimulation,1.16,1.4e-02,*,0.7,0.7,0.5,Changed in both
+TNFRSF9,4-1BB / Co-stimulation,-0.32,5.0e-02,ns,0.1,0.5,1.0,Stable in both
+IL2RA,CD25 / Activation,-0.2,2.3e-01,ns,-0.6,-0.4,-0.2,Masked in HZ bulk
+IL2RB,CD122 / IL-2 signaling,0.2,1.4e-01,ns,-0.9,0.1,-1.6,Masked in HZ bulk
+IL15RA,IL-15 receptor,0.2,7.7e-02,ns,-0.6,-0.8,0.9,Masked in HZ bulk
+STAT1,IFN signaling (non-T source in bulk),0.6,9.5e-04,***,-0.2,-0.4,-0.1,Bulk only (non-T source)
+STAT3,Cytokine signaling,-0.1,3.4e-01,ns,-0.1,-0.2,-0.6,Stable in both
+STAT4,IL-12 signaling / Th1,-0.18,1.1e-01,ns,0.0,0.1,0.3,Stable in both
+STAT5A,IL-2 signaling,0.02,7.9e-01,ns,0.3,0.5,-0.1,Stable in both
+TOX,Exhaustion / Differentiation,-0.04,7.9e-01,ns,1.3,2.2,0.5,Masked in HZ bulk
+TOX2,Exhaustion / Differentiation,0.11,3.1e-01,ns,5.3,5.0,1.7,Masked in HZ bulk
+CXCR3,Th1 chemokine receptor,0.68,5.2e-04,***,-0.6,-0.3,-0.5,Changed in both
+CCR4,Th2 chemokine receptor,-0.01,9.8e-01,ns,-0.4,1.3,0.0,Stable in both
