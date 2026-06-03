@@ -870,6 +870,109 @@ if (file.exists(hra_file)) {
   write.csv(key_df, file.path(RES_RZV, "KeyImmune_DirectionConcordance.csv"),
             row.names = FALSE)
 
+  # --- D6. 可视化1: 方向一致性散点图 (HRA LFC vs RZV D14 LFC) ---
+  message("绘制HRA vs RZV方向一致性图...")
+  plot_data <- comp_sig[!is.na(comp_sig$RZV_D14), ]
+  plot_data$dir_group <- ifelse(
+    grepl("Concordant", plot_data$direction),
+    ifelse(plot_data$HRA_dir > 0, "Concordant Up", "Concordant Down"),
+    "Opposite Direction"
+  )
+
+  xmax <- max(abs(plot_data$HRA_LFC), 3, na.rm = TRUE) * 1.1
+  ymax <- max(abs(plot_data$RZV_D14), 5, na.rm = TRUE) * 1.1
+
+  pdf(file.path(FIG_DIR, "FigD_Concordance_Scatter.pdf"), width = 9, height = 8)
+  p <- ggplot(plot_data, aes(x = HRA_LFC, y = RZV_D14, color = dir_group)) +
+    geom_point(alpha = 0.3, size = 1.5) +
+    geom_hline(yintercept = 0, linewidth = 0.5) +
+    geom_vline(xintercept = 0, linewidth = 0.5) +
+    scale_color_manual(values = c("Concordant Up" = "#E41A1C",
+                                   "Concordant Down" = "#377EB8",
+                                   "Opposite Direction" = "#FF7F00")) +
+    xlim(-xmax, xmax) + ylim(-ymax, ymax) +
+    labs(x = "HRA008316 T cell LFC (HP vs HA)",
+         y = "RZV gE-CD4+ T cell LFC (D14 vs D0)",
+         title = "T Cell Gene Direction Concordance",
+         subtitle = paste0("HZ Disease vs RZV Vaccine | ",
+                           n_conc, " concordant (", round(100*n_conc/nrow(plot_data)), "%), ",
+                           n_opp, " opposite (", round(100*n_opp/nrow(plot_data)), "%)"),
+         color = "Direction") +
+    theme_minimal(base_size = 13) +
+    theme(legend.position = "bottom")
+  # 标注关键免疫基因
+  label_immune <- plot_data[plot_data$gene %in% key_immune & !is.na(plot_data$HRA_LFC), ]
+  if (nrow(label_immune) > 0) {
+    p <- p + ggrepel::geom_text_repel(data = label_immune,
+                                       aes(label = gene), size = 3.2, max.overlaps = 20,
+                                       segment.size = 0.3, box.padding = 0.3)
+  }
+  print(p)
+  dev.off()
+  message("  散点图已保存: FigD_Concordance_Scatter.pdf")
+
+  # --- D7. 可视化2: 方向一致性汇总柱状图 ---
+  dir_counts <- as.data.frame(table(comp_sig$direction))
+  names(dir_counts) <- c("Direction", "Count")
+  dir_counts$Direction <- factor(dir_counts$Direction,
+    levels = c("Concordant Up", "Concordant Down",
+               "Opposite (HZ Up, RZV Down)", "Opposite (HZ Down, RZV Up)"))
+
+  pdf(file.path(FIG_DIR, "FigD_Concordance_Bar.pdf"), width = 8, height = 5)
+  p2 <- ggplot(dir_counts, aes(x = Direction, y = Count, fill = Direction)) +
+    geom_bar(stat = "identity", width = 0.6, alpha = 0.85) +
+    geom_text(aes(label = Count), vjust = -0.3, fontface = "bold", size = 4) +
+    scale_fill_manual(values = c("Concordant Up" = "#E41A1C",
+                                  "Concordant Down" = "#377EB8",
+                                  "Opposite (HZ Up, RZV Down)" = "#FF7F00",
+                                  "Opposite (HZ Down, RZV Up)" = "#984EA3")) +
+    labs(x = "", y = "Number of Genes",
+         title = paste0("Direction Concordance: HZ T Cells vs RZV T Cells (n=", nrow(comp_sig), ")")) +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 9),
+          legend.position = "none")
+  print(p2)
+  dev.off()
+  message("  柱状图已保存: FigD_Concordance_Bar.pdf")
+
+  # --- D8. 可视化3: 关键免疫基因棒棒糖图 (HRA vs RZV D14) ---
+  key_plot <- key_df[!is.na(key_df$HRA_LFC) & !is.na(key_df$RZV_D14), ]
+  if (nrow(key_plot) >= 8) {
+    key_plot <- key_plot[order(key_plot$HRA_LFC - key_plot$RZV_D14), ]
+    key_genes_ordered <- key_plot$gene
+
+    key_long <- data.frame(
+      gene = rep(key_genes_ordered, 2),
+      LFC = c(key_plot$HRA_LFC, key_plot$RZV_D14),
+      Dataset = rep(c("HZ T cells (HP vs HA)", "RZV T cells (D14 vs D0)"),
+                    each = nrow(key_plot))
+    )
+    key_long$gene <- factor(key_long$gene, levels = key_genes_ordered)
+
+    pdf(file.path(FIG_DIR, "FigD_KeyGenes_Lollipop.pdf"), width = 10, height = 7)
+    p3 <- ggplot(key_long, aes(x = LFC, y = gene, color = Dataset)) +
+      geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+      geom_segment(data = key_plot,
+                   aes(x = 0, xend = HRA_LFC, y = gene, yend = gene),
+                   color = "#E41A1C", alpha = 0.4, linewidth = 2) +
+      geom_segment(data = key_plot,
+                   aes(x = 0, xend = RZV_D14, y = gene, yend = gene),
+                   color = "#377EB8", alpha = 0.4, linewidth = 2) +
+      geom_point(aes(size = abs(LFC)), alpha = 0.8) +
+      scale_color_manual(values = c("HZ T cells (HP vs HA)" = "#E41A1C",
+                                     "RZV T cells (D14 vs D0)" = "#377EB8")) +
+      scale_size(range = c(2, 7)) +
+      labs(x = "log2 Fold Change", y = "",
+           title = "Key Immune Genes: HZ vs RZV T Cell Response",
+           color = "Dataset", size = "|LFC|") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.y = element_text(face = "bold", size = 10),
+            legend.position = "bottom")
+    print(p3)
+    dev.off()
+    message("  棒棒糖图已保存: FigD_KeyGenes_Lollipop.pdf")
+  }
+
 } else {
   message("HRA008316 补充数据文件未找到: ", hra_file)
   message("请从 https://pmc.ncbi.nlm.nih.gov/articles/PMC11618686/ 下载 Supplementary Data 1")
@@ -891,6 +994,9 @@ message("  logFC合并矩阵:        ", file.path(RES_RZV, "logFC_matrix_all_tim
 message("  PCA图:                ", file.path(FIG_DIR, "FigA_PCA_HZ.pdf"))
 message("  火山图:               ", file.path(FIG_DIR, "FigA_Volcano_HZ.pdf"))
 message("  --- Part D: HRA008316 ---")
-message("  方向一致性表:           ", file.path(RES_RZV, "HRA_vs_RZV_direction_concordance.csv"))
-message("  关键免疫基因方向表:     ", file.path(RES_RZV, "KeyImmune_DirectionConcordance.csv"))
+message("  方向一致性散点图:       ", file.path(FIG_DIR, "FigD_Concordance_Scatter.pdf"))
+message("  方向一致性柱状图:       ", file.path(FIG_DIR, "FigD_Concordance_Bar.pdf"))
+message("  关键基因棒棒糖图:       ", file.path(FIG_DIR, "FigD_KeyGenes_Lollipop.pdf"))
+message("  方向一致性CSV:          ", file.path(RES_RZV, "HRA_vs_RZV_direction_concordance.csv"))
+message("  关键免疫基因CSV:        ", file.path(RES_RZV, "KeyImmune_DirectionConcordance.csv"))
 message(paste(rep("=", 70), collapse = ""))
