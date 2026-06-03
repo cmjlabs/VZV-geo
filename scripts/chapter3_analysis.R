@@ -936,78 +936,44 @@ if (file.exists(hra_file)) {
   dev.off()
   message("  柱状图已保存: FigD_Concordance_Bar.pdf")
 
-  # --- D8. 可视化3: 关键免疫基因LFC对比 (分两面板: 共有基因 + RZV独有) ---
-  # 面板A: 两数据集共有的11个基因 (并排对比)
-  key_both <- key_df[!is.na(key_df$HRA_LFC) & !is.na(key_df$RZV_D14), ]
-  # 面板B: 仅在RZV中检测到的13个基因
-  key_rzv_only <- key_df[is.na(key_df$HRA_LFC) & !is.na(key_df$RZV_D14), ]
+  # --- D8. 可视化3: 全部共享基因棒棒糖图 (取|LFC|最大的Top50) ---
+  # 使用全部comp_sig基因(非仅关键基因), 按 max(|HRA_LFC|, |RZV_D14|) 取Top50
+  comp_plot <- comp_sig[!is.na(comp_sig$HRA_LFC) & !is.na(comp_sig$RZV_D14), ]
+  comp_plot$max_abs_LFC <- pmax(abs(comp_plot$HRA_LFC), abs(comp_plot$RZV_D14), na.rm = TRUE)
+  comp_plot <- comp_plot[order(-comp_plot$max_abs_LFC), ]
+  top50 <- head(comp_plot, 50)
+  message(sprintf("  全部共享基因: %d 个, 取Top50绘制棒棒糖图", nrow(comp_plot)))
 
-  pdf(file.path(FIG_DIR, "FigD_KeyGenes_Lollipop.pdf"), width = 12, height = 8)
+  top50 <- top50[order(top50$HRA_LFC - top50$RZV_D14), ]
+  g_all <- top50$gene
+  all_long <- data.frame(
+    gene = rep(g_all, 2),
+    LFC = c(top50$HRA_LFC, top50$RZV_D14),
+    Dataset = rep(c("HZ T cells (HP vs HA)", "RZV T cells (D14 vs D0)"), each = nrow(top50))
+  )
+  all_long$gene <- factor(all_long$gene, levels = g_all)
 
-  # --- 面板A: 共有基因 ---
-  if (nrow(key_both) >= 5) {
-    key_both <- key_both[order(key_both$HRA_LFC - key_both$RZV_D14), ]
-    g1 <- key_both$gene
-    both_long <- data.frame(
-      gene = rep(g1, 2),
-      LFC = c(key_both$HRA_LFC, key_both$RZV_D14),
-      Dataset = rep(c("HZ T cells", "RZV T cells"), each = nrow(key_both))
-    )
-    both_long$gene <- factor(both_long$gene, levels = g1)
-
-    pA <- ggplot(both_long, aes(x = LFC, y = gene, color = Dataset)) +
-      geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
-      geom_segment(data = key_both, aes(x = 0, xend = HRA_LFC, y = gene, yend = gene),
-                   color = "#E41A1C", alpha = 0.3, linewidth = 2.5) +
-      geom_segment(data = key_both, aes(x = 0, xend = RZV_D14, y = gene, yend = gene),
-                   color = "#377EB8", alpha = 0.3, linewidth = 2.5) +
-      geom_point(aes(size = abs(LFC)), alpha = 0.85) +
-      scale_color_manual(values = c("HZ T cells" = "#E41A1C", "RZV T cells" = "#377EB8")) +
-      scale_size(range = c(3, 7)) +
-      labs(x = "log2 Fold Change", y = "",
-           title = paste0("Genes Detected in Both Datasets (n=", nrow(key_both), ")"),
-           subtitle = "Red = HZ T cells (HP vs HA) | Blue = RZV T cells (D14 vs D0)") +
-      theme_minimal(base_size = 11) +
-      theme(axis.text.y = element_text(face = "bold", size = 10),
-            legend.position = "bottom")
-  }
-
-  # --- 面板B: RZV独有基因 ---
-  if (nrow(key_rzv_only) >= 5) {
-    key_rzv_only <- key_rzv_only[order(key_rzv_only$RZV_D14), ]
-    g2 <- key_rzv_only$gene
-    rzv_long <- data.frame(
-      gene = factor(g2, levels = g2),
-      LFC = key_rzv_only$RZV_D14,
-      D365 = key_rzv_only$RZV_D365
-    )
-
-    pB <- ggplot(rzv_long, aes(x = LFC, y = gene)) +
-      geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
-      geom_segment(aes(x = 0, xend = LFC, y = gene, yend = gene),
-                   color = "#377EB8", alpha = 0.5, linewidth = 3) +
-      geom_point(aes(size = abs(LFC)), color = "#377EB8", alpha = 0.85) +
-      scale_size(range = c(3, 7)) +
-      labs(x = "log2 Fold Change (D14 vs D0)", y = "",
-           title = paste0("Genes Only Detected in RZV T Cells (n=", nrow(key_rzv_only), ")"),
-           subtitle = "Protection Signature genes — visible in RZV, masked in HZ bulk") +
-      theme_minimal(base_size = 11) +
-      theme(axis.text.y = element_text(face = "bold", size = 10),
-            legend.position = "none")
-  }
-
-  # 合并两个面板
-  if (exists("pA") && exists("pB")) {
-    gridExtra::grid.arrange(pA, pB, ncol = 2,
-      top = grid::textGrob("Key Immune Genes: HZ vs RZV T Cell Response",
-                           gp = grid::gpar(fontsize = 14, fontface = "bold")))
-  } else if (exists("pA")) {
-    print(pA)
-  } else if (exists("pB")) {
-    print(pB)
-  }
+  pdf(file.path(FIG_DIR, "FigD_KeyGenes_Lollipop.pdf"), width = 10, height = 14)
+  p3 <- ggplot(all_long, aes(x = LFC, y = gene, color = Dataset)) +
+    geom_vline(xintercept = 0, linewidth = 0.5, color = "grey50") +
+    geom_segment(data = top50, aes(x = 0, xend = HRA_LFC, y = gene, yend = gene),
+                 color = "#E41A1C", alpha = 0.3, linewidth = 2) +
+    geom_segment(data = top50, aes(x = 0, xend = RZV_D14, y = gene, yend = gene),
+                 color = "#377EB8", alpha = 0.3, linewidth = 2) +
+    geom_point(aes(size = abs(LFC)), alpha = 0.8) +
+    scale_color_manual(values = c("HZ T cells (HP vs HA)" = "#E41A1C",
+                                   "RZV T cells (D14 vs D0)" = "#377EB8")) +
+    scale_size(range = c(2, 6)) +
+    labs(x = "log2 Fold Change", y = "",
+         title = paste0("Top 50 Genes by |LFC|: HZ vs RZV T Cell Response"),
+         subtitle = paste0("From ", nrow(comp_plot), " shared genes | Red = HZ, Blue = RZV"),
+         color = "Dataset", size = "|LFC|") +
+    theme_minimal(base_size = 11) +
+    theme(axis.text.y = element_text(size = 8),
+          legend.position = "bottom")
+  print(p3)
   dev.off()
-  message("  棒棒糖图已保存: FigD_KeyGenes_Lollipop.pdf (两面板: 共有11基因 + RZV独有13基因)")
+  message("  棒棒糖图已保存: FigD_KeyGenes_Lollipop.pdf (全部共享基因Top50)")
 
 } else {
   message("HRA008316 补充数据文件未找到: ", hra_file)
